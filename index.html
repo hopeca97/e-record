@@ -442,7 +442,7 @@
 </div>
 
   <script>
-    let isAppInitialized = false; // Initialization guard flag
+let isAppInitialized = false; // Initialization guard flag
 
 // ------------------------------------------------------------------
 // 1. SUPABASE CLIENT & STATE
@@ -610,71 +610,6 @@ function calculateTransmuted(initialGrade) {
 }
 
 // ------------------------------------------------------------------
-// 4. OFFLINE SYNC ENGINE (Strict Schema Alignment)
-// ------------------------------------------------------------------
-function updateOnlineStatus() {
-  const isOnline = navigator.onLine;
-  const statusBadge = document.getElementById('sync-status');
-  if (!statusBadge) return;
-
-  if (isOnline) {
-    statusBadge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500 text-white flex items-center gap-2";
-    statusBadge.innerHTML = `<span class="w-2 h-2 bg-white rounded-full animate-ping"></span> Online`;
-    syncOfflineData();
-  } else {
-    statusBadge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-amber-500 text-white flex items-center gap-2";
-    statusBadge.innerHTML = `Offline (Saving Locally)`;
-  }
-}
-
-window.addEventListener('online', updateOnlineStatus);
-window.addEventListener('offline', updateOnlineStatus);
-
-function getLocalOutbox() {
-  return JSON.parse(localStorage.getItem('er_outbox') || '[]');
-}
-
-function queueForSync(table, record) {
-  const outbox = getLocalOutbox();
-  outbox.push({ table, record, timestamp: Date.now() });
-  localStorage.setItem('er_outbox', JSON.stringify(outbox));
-  if (navigator.onLine) syncOfflineData();
-}
-
-async function syncOfflineData() {
-  const outbox = getLocalOutbox();
-  if (outbox.length === 0) return;
-
-  const validColumns = [
-    'uuid', 'created_at', 'progress_lc', 'learner_id', 
-    'subject', 'progress_at', 'progress_above', 
-    'progress_below', 'progress_result', 'progress_topic'
-  ];
-
-  const remaining = [];
-  for (const item of outbox) {
-    try {
-      // Validate that record keys only contain columns matching the exact schema
-      const recordKeys = Object.keys(item.record || {});
-      const hasInvalidCol = recordKeys.some(key => !validColumns.includes(key));
-      
-      if (hasInvalidCol) {
-        console.warn("Discarding outdated outbox item with invalid columns:", item);
-        continue;
-      }
-
-      const { error } = await supabaseClient.from(item.table).insert([item.record]);
-      if (error) throw error;
-    } catch (err) {
-      console.error(`Sync failed for table ${item.table}:`, err);
-      remaining.push(item);
-    }
-  }
-
-  localStorage.setItem('er_outbox', JSON.stringify(remaining));
-}
-
-// ------------------------------------------------------------------
 // 1. UPDATE ALL SUBJECT DROPDOWNS & ADD LC CHECKBOXES
 // ------------------------------------------------------------------
 function updateSubjectDropdowns() {
@@ -733,7 +668,7 @@ async function initApp() {
       let html = '<option value="">Select Subject</option>';
       (subjects || []).forEach(sub => {
         const subName = sub.subject_name || 'Unnamed Subject';
-        // Display only the subject name without the parenthetical section info
+        // Display only the subject name without parenthetical section info
         html += `<option value="${sub.id}">${subName}</option>`;
       });
       selector.innerHTML = html;
@@ -774,10 +709,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initApp();
 });
 
-
-// ------------------------------------------------------------------
-// POPULATE LC SUBJECT CHECKBOXES (Clean Subject Names)
-// ------------------------------------------------------------------
 // ------------------------------------------------------------------
 // POPULATE LC SUBJECT CHECKBOXES (Matches #lc-subject-container)
 // ------------------------------------------------------------------
@@ -808,7 +739,6 @@ async function populateLcDropdowns() {
     let html = '';
     subjects.forEach(sub => {
       const subName = sub.subject_name || 'Unnamed Subject';
-      // Clean display showing only the subject name without parenthetical text
       html += `
         <label class="flex items-center gap-2 text-xs cursor-pointer">
           <input type="checkbox" name="lc_subject_checkbox" value="${sub.id}" onchange="updateLcTopicsDropdown()" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
@@ -826,14 +756,14 @@ async function populateLcDropdowns() {
 }
 
 // ------------------------------------------------------------------
-// POPULATE REPORT & SUMMARY SUBJECT DROPDOWNS (ROBUST VERSION)
+// POPULATE REPORT & SUMMARY SUBJECT DROPDOWNS
 // ------------------------------------------------------------------
 async function populateReportSubjectDropdown() {
   const reportSelect = document.getElementById('report-subject');
   const summarySelect = document.getElementById('summary-subject');
 
   if (!reportSelect && !summarySelect) {
-    console.warn("Warning: Neither 'report-subject' nor 'summary-subject' <select> elements were found in the HTML DOM.");
+    console.warn("Warning: Neither 'report-subject' nor 'summary-subject' <select> elements were found in HTML.");
     return;
   }
 
@@ -859,11 +789,10 @@ async function populateReportSubjectDropdown() {
     }
 
     let html = '<option value="">Select Subject</option>';
-      (subjects || []).forEach(sub => {
-        const subName = sub.subject_name || 'Unnamed Subject';
-        // Display only the subject name without the parenthetical section info
-        html += `<option value="${sub.id}">${subName}</option>`;
-      });
+    (subjects || []).forEach(sub => {
+      const subName = sub.subject_name || 'Unnamed Subject';
+      html += `<option value="${sub.id}">${subName}</option>`;
+    });
 
     if (reportSelect) reportSelect.innerHTML = html;
     if (summarySelect) summarySelect.innerHTML = html;
@@ -874,15 +803,18 @@ async function populateReportSubjectDropdown() {
   }
 }
 
+// ------------------------------------------------------------------
+// HANDLE SUBJECT CHANGE
+// ------------------------------------------------------------------
 async function handleSubjectChange() {
   const selector = document.getElementById('subject-selector');
   if (!selector) return;
 
-  // 1. CAPTURE CURRENT ADD ACTIVITY FORM VALUES (Prevent clearing on subject switch)
-  const titleInput = document.getElementById('activity-title'); // Change ID to match your actual input ID
-  const dateInput = document.getElementById('activity-date');   // Change ID to match your actual input ID
-  const typeInput = document.getElementById('activity-type');   // Change ID to match your actual select/input ID
-  const maxScoreInput = document.getElementById('activity-max'); // Change ID to match your actual input ID
+  // 1. Capture current Add Activity form values (Prevent clearing on subject switch)
+  const titleInput = document.getElementById('activity-title'); 
+  const dateInput = document.getElementById('activity-date');   
+  const typeInput = document.getElementById('activity-type');   
+  const maxScoreInput = document.getElementById('activity-max'); 
 
   const savedFormValues = {
     title: titleInput ? titleInput.value : '',
@@ -898,7 +830,7 @@ async function handleSubjectChange() {
     localStorage.setItem('er_selected_subject_id', selectedId);
   }
 
-  // Load subject-specific learners & grades data
+  // Load subject-specific learners & grades data directly from database
   if (state.selectedSubject && state.selectedSubject.subject_section) {
     const { data: learnersData } = await supabaseClient
       .from('er_learners')
@@ -907,7 +839,7 @@ async function handleSubjectChange() {
       .order('learner_gender', { ascending: false })
       .order('learner_name', { ascending: true });
 
-    state.learners = learnersData || [];
+    state.learners = sortLearners(learnersData || []);
 
     const { data: gradesData } = await supabaseClient
       .from('er_grades')
@@ -924,27 +856,34 @@ async function handleSubjectChange() {
     calculateQuarterlySummary();
   }
 
-  // 2. RESTORE FORM VALUES SO THEY ARE NOT LOST
+  if (typeof renderAttendance === 'function') {
+    renderAttendance();
+  }
+
+  // 2. Restore form values so they are not lost
   if (titleInput && savedFormValues.title) titleInput.value = savedFormValues.title;
   if (dateInput && savedFormValues.date) dateInput.value = savedFormValues.date;
   if (typeInput && savedFormValues.type) typeInput.value = savedFormValues.type;
   if (maxScoreInput && savedFormValues.maxScore) maxScoreInput.value = savedFormValues.maxScore;
 }
 
+// ------------------------------------------------------------------
+// HELPER UTILITIES & ATTENDANCE MANAGEMENT
+// ------------------------------------------------------------------
 function sortLearners(learners) {
   return learners.sort((a, b) => {
-      const genderA = (a.learner_gender || '').toUpperCase();
-      const genderB = (b.learner_gender || '').toUpperCase();
+    const genderA = (a.learner_gender || '').toUpperCase();
+    const genderB = (b.learner_gender || '').toUpperCase();
 
-      // Primary Sort: Male ('M') before Female ('F')
-      if (genderA !== genderB) {
+    // Primary Sort: Male ('M') before Female ('F')
+    if (genderA !== genderB) {
       if (genderA === 'M' || genderA === 'MALE') return -1;
       if (genderB === 'M' || genderB === 'MALE') return 1;
       return genderA.localeCompare(genderB);
-      }
+    }
 
-      // Secondary Sort: Alphabetical by Name
-      return (a.learner_name || '').localeCompare(b.learner_name || '');
+    // Secondary Sort: Alphabetical by Name
+    return (a.learner_name || '').localeCompare(b.learner_name || '');
   });
 }
 
@@ -955,13 +894,6 @@ function initAttendanceDate() {
     dateInput.value = today;
   }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  const dateInput = document.getElementById('att-date');
-  if (dateInput && !dateInput.value) {
-    dateInput.value = new Date().toISOString().split('T')[0];
-  }
-});
 
 function renderAttendance() {
   const container = document.getElementById('attendance-list');
@@ -995,49 +927,55 @@ function renderAttendance() {
       </tr>
     `;
   }).join('');
-
-  if (typeof calculateQuarterlySummary === 'function') {
-    calculateQuarterlySummary();
-  }
-
-  // >>> ADD THIS LINE TO RENDER ATTENDANCE WHEN LEARNERS ARE LOADED <<<
-  if (typeof renderAttendance === 'function') {
-    renderAttendance();
-  }
-
-  // 2. RESTORE FORM VALUES SO THEY ARE NOT LOST
-  if (titleInput && savedFormValues.title) titleInput.value = savedFormValues.title;
-  if (dateInput && savedFormValues.date) dateInput.value = savedFormValues.date;
-  if (typeInput && savedFormValues.type) typeInput.value = savedFormValues.type;
-  if (maxScoreInput && savedFormValues.maxScore) maxScoreInput.value = savedFormValues.maxScore;
 }
 
-function saveAttendance() {
+/**
+ * Saves attendance records directly to Supabase via online upsert.
+ */
+async function saveAttendance() {
   if (!state.selectedSubject) return alert("Select a subject first.");
   
-  const date = document.getElementById('att-date').value;
+  const date = document.getElementById('att-date')?.value;
   if (!date) return alert("Please select an attendance date.");
 
-  state.learners.forEach(l => {
+  const attendanceRecords = state.learners.map(l => {
     const selectEl = document.getElementById(`att-${l.id}`);
-    if (!selectEl) return;
-    
-    const record = {
+    return {
       attendance_date: date,
       attendance_learner: l.id,
       attendance_subject: state.selectedSubject.id,
-      attendance_tag: selectEl.value
+      attendance_tag: selectEl ? selectEl.value : 'Present'
     };
-    queueForSync('er_attendance', record);
   });
 
-  alert('Attendance recorded & queued for sync!');
+  const saveBtn = document.querySelector('button[onclick="saveAttendance()"]');
+  if (saveBtn) {
+    saveBtn.innerText = "Saving...";
+    saveBtn.disabled = true;
+  }
+
+  try {
+    const { error } = await supabaseClient
+      .from('er_attendance')
+      .upsert(attendanceRecords, { onConflict: 'attendance_date,attendance_learner,attendance_subject' });
+
+    if (error) throw error;
+    alert('Attendance successfully recorded to the database!');
+  } catch (err) {
+    console.error("Failed to save attendance:", err);
+    alert("Error saving attendance to database: " + err.message);
+  } finally {
+    if (saveBtn) {
+      saveBtn.innerText = "Save Attendance";
+      saveBtn.disabled = false;
+    }
+  }
 }
 
-    // ------------------------------------------------------------------
-    // 6. ACTIVITY COLUMN MANAGEMENT & TRANSMUTATION SUMMARY
-    // ------------------------------------------------------------------
-    async function addActivityColumn() {
+// ------------------------------------------------------------------
+// 1. ADD ACTIVITY COLUMN
+// ------------------------------------------------------------------
+async function addActivityColumn() {
   if (!state.selectedSubject) return alert('Please select a subject first.');
 
   const titleInput = document.getElementById('act-title');
@@ -1052,20 +990,20 @@ function saveAttendance() {
 
   if (!title) return alert('Please enter an activity title.');
 
-  // Check if activity already exists
+  // Check if activity already exists in state
   const exists = state.savedGradesLocal.some(
-    g => g.grade_title === title && g.grade_subject === state.selectedSubject.id
+    g => g.grade_title === title && String(g.grade_subject) === String(state.selectedSubject.id)
   );
 
   if (exists) {
     return alert(`An activity named "${title}" already exists for this subject.`);
   }
 
-  if (state.learners.length === 0) {
+  if (!state.learners || state.learners.length === 0) {
     return alert('No learners found in this section. Please add learners first.');
   }
 
-  // 1. Generate default grade records (score = 0) for EVERY learner in section
+  // Generate default grade records (score = 0) for EVERY learner in section
   const newGradeRecords = state.learners.map(learner => ({
     grade_learner: learner.id,
     grade_subject: state.selectedSubject.id,
@@ -1073,61 +1011,59 @@ function saveAttendance() {
     grade_type: type,
     grade_max_score: maxScore,
     grade_date: date || null,
-    grade_score: 0 // Automatically default score to 0
+    grade_score: 0
   }));
 
-  // 2. Add to local memory cache
-  state.savedGradesLocal.push(...newGradeRecords);
-
-  // 3. Batch insert into Supabase DB
+  // Direct insert into Supabase
   try {
     const { data, error } = await supabaseClient
       .from('er_grades')
       .insert(newGradeRecords)
       .select();
 
-    if (error) {
-      console.error("DB Insert error, queueing for offline sync:", error);
-      newGradeRecords.forEach(rec => queueForSync('er_grades', rec));
-    } else if (data) {
-      // Update local array with DB assigned IDs
-      data.forEach(insertedRow => {
-        const localMatch = state.savedGradesLocal.find(
-          g => g.grade_learner === insertedRow.grade_learner && g.grade_title === insertedRow.grade_title
-        );
-        if (localMatch) localMatch.id = insertedRow.id;
-      });
+    if (error) throw error;
+
+    // Add to local state with returned primary key IDs
+    if (data && data.length > 0) {
+      state.savedGradesLocal.push(...data);
+    } else {
+      state.savedGradesLocal.push(...newGradeRecords);
     }
   } catch (err) {
-    console.error("Failed to send records to database:", err);
-    newGradeRecords.forEach(rec => queueForSync('er_grades', rec));
+    console.error("Failed to add activity to Supabase:", err);
+    return alert("Failed to save new activity to database: " + err.message);
   }
 
-  // 4. Reset title input and render summary sheet with 0 values
+  // Clear input and re-render full summary table
   if (titleInput) titleInput.value = '';
   calculateQuarterlySummary();
 }
 
-// Toggle activity inclusion state and recalculate summary
+// ------------------------------------------------------------------
+// 2. TOGGLE ACTIVITY INCLUSION
+// ------------------------------------------------------------------
 function toggleActivityInclusion(btnEl) {
   const currentStatus = btnEl.getAttribute('data-included') === 'true';
-  btnEl.setAttribute('data-included', !currentStatus);
+  btnEl.setAttribute('data-included', (!currentStatus).toString());
   calculateQuarterlySummary();
 }
 
+// ------------------------------------------------------------------
+// 3. CALCULATE QUARTERLY SUMMARY & RENDER TABLE
+// ------------------------------------------------------------------
 function calculateQuarterlySummary() {
   const theadContainer = document.getElementById('summary-thead');
   const tbodyContainer = document.getElementById('summary-list');
 
   if (!theadContainer || !tbodyContainer) return;
 
-  if (!state.selectedSubject || state.learners.length === 0) {
+  if (!state.selectedSubject || !state.learners || state.learners.length === 0) {
     theadContainer.innerHTML = '';
-    tbodyContainer.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-400">Select a subject to view summary</td></tr>`;
+    tbodyContainer.innerHTML = `<tr><td colspan="20" class="p-6 text-center text-slate-400">Select a subject with enrolled learners to view summary</td></tr>`;
     return;
   }
 
-  // Preserve existing button inclusion states before re-rendering
+  // Preserve existing toggle inclusion states across re-renders
   const excludedTitles = new Set();
   document.querySelectorAll('button.activity-toggle-btn').forEach(btn => {
     if (btn.getAttribute('data-included') === 'false') {
@@ -1135,13 +1071,12 @@ function calculateQuarterlySummary() {
     }
   });
 
-  // Strict number parser to completely prevent NaN
   const safeNum = (val) => {
     const num = parseFloat(val);
     return isNaN(num) ? 0 : num;
   };
 
-  // 1. CALCULATE DYNAMIC WIDTH FOR LEARNER NAME COLUMN
+  // Dynamic Column Width for Learner Name
   let maxNameLength = 12;
   state.learners.forEach(l => {
     if (l.learner_name && l.learner_name.length > maxNameLength) {
@@ -1151,16 +1086,15 @@ function calculateQuarterlySummary() {
   const dynamicWidth = Math.max(240, Math.ceil(maxNameLength * 8.5) + 40);
   const nameColStyle = `width: ${dynamicWidth}px; min-width: ${dynamicWidth}px; max-width: ${dynamicWidth}px;`;
 
-  // Standard fixed width for columns
   const actColStyle = 'width: 100px; min-width: 100px; max-width: 100px;';
   const totalColStyle = 'width: 95px; min-width: 95px; max-width: 95px;';
   const pctColStyle = 'width: 95px; min-width: 95px; max-width: 95px;';
 
-  // 2. EXTRACT & SORT UNIQUE ACTIVITIES PER TYPE BY DATE (Ascending)
+  // Extract & Sort Unique Activities
   const getUniqueActivities = (typePredicate) => {
     const map = new Map();
     state.savedGradesLocal.forEach(g => {
-      if (typePredicate(g.grade_type) && g.grade_title) {
+      if (String(g.grade_subject) === String(state.selectedSubject.id) && typePredicate(g.grade_type) && g.grade_title) {
         if (!map.has(g.grade_title)) {
           map.set(g.grade_title, { 
             title: g.grade_title, 
@@ -1172,7 +1106,6 @@ function calculateQuarterlySummary() {
       }
     });
     
-    // Convert to array and sort by date (earliest to latest)
     return Array.from(map.values()).sort((a, b) => {
       const dateA = a.date ? new Date(a.date) : new Date(0);
       const dateB = b.date ? new Date(b.date) : new Date(0);
@@ -1184,18 +1117,14 @@ function calculateQuarterlySummary() {
   const ptActs = getUniqueActivities(t => t === 'PT');
   const qaActs = getUniqueActivities(t => t && t.startsWith('QA'));
 
-  // 3. APPLY TABLE STYLES & DYNAMIC MIN-WIDTH
   const tableEl = theadContainer.closest('table');
   const tableWrapper = tableEl ? tableEl.parentElement : null;
 
   if (tableEl) {
     tableEl.style.tableLayout = 'fixed';
-    
     const totalColsWidth = dynamicWidth + 
       ((wwActs.length + ptActs.length + qaActs.length) * 100) + 
-      (3 * 195) + 
-      290;
-
+      (3 * 195) + 290;
     tableEl.style.minWidth = `${totalColsWidth}px`;
   }
 
@@ -1218,7 +1147,7 @@ function calculateQuarterlySummary() {
     return isNaN(d) ? dateStr : d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
   };
 
-  // 4. BUILD TABLE HEADERS (4 Stacked Sticky Rows with Rigid Heights & Cumulative Offsets)
+  // Build Header Rows
   let headRow1 = `
     <tr class="text-center font-bold text-xs uppercase tracking-wider text-white h-[38px]">
       <th rowspan="4" style="${nameColStyle}" class="p-3 bg-slate-800 border-r border-slate-700 text-left whitespace-nowrap sticky left-0 top-0 z-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)] align-middle">
@@ -1299,7 +1228,7 @@ function calculateQuarterlySummary() {
   headRow2 += `<th rowspan="3" style="${totalColStyle}" class="p-2 border-r border-amber-200 bg-amber-50 text-amber-900 font-bold text-center align-middle sticky top-[38px] z-40">QA Total</th>`;
   headRow2 += `<th rowspan="3" style="${pctColStyle}" class="p-2 border-r-2 border-amber-300 bg-amber-100 text-amber-950 font-bold text-center align-middle sticky top-[38px] z-40">QA %</th>`;
 
-  // Final Grade columns
+  // Final Grades
   headRow2 += `
     <th rowspan="3" style="width: 90px; min-width: 90px; max-width: 90px;" class="p-2 border-r border-slate-200 text-center align-middle sticky top-[38px] z-40 bg-slate-100">Initial %</th>
     <th rowspan="3" style="width: 100px; min-width: 100px; max-width: 100px;" class="p-2 border-r border-slate-200 text-center font-bold text-blue-900 text-base align-middle sticky top-[38px] z-40 bg-slate-100">Transmuted</th>
@@ -1311,9 +1240,11 @@ function calculateQuarterlySummary() {
 
   theadContainer.innerHTML = headRow1 + headRow2 + headRow3 + headRow4;
 
-  // 5. BUILD TABLE BODY (Student Rows)
+  // Build Student Rows
   const learnersHTML = state.learners.map(l => {
-    const studentGrades = state.savedGradesLocal.filter(g => g.grade_learner === l.id);
+    const studentGrades = state.savedGradesLocal.filter(
+      g => String(g.grade_learner) === String(l.id) && String(g.grade_subject) === String(state.selectedSubject.id)
+    );
 
     const calcCategoryData = (activities) => {
       if (activities.length === 0) return { cellsHTML: '', totalEarned: 0, totalMax: 0, percentage: 0 };
@@ -1323,10 +1254,8 @@ function calculateQuarterlySummary() {
 
       activities.forEach(act => {
         const entry = studentGrades.find(g => g.grade_title === act.title);
-        
-        const scoreVal = entry && entry.grade_score !== '' && entry.grade_score !== undefined && entry.grade_score !== null 
-          ? safeNum(entry.grade_score) 
-          : 0;
+        const hasScore = entry && entry.grade_score !== null && entry.grade_score !== undefined && entry.grade_score !== '';
+        const scoreVal = hasScore ? safeNum(entry.grade_score) : 0;
         const maxScoreVal = safeNum(act.maxScore) || 100;
 
         const isIncluded = !excludedTitles.has(act.title);
@@ -1337,9 +1266,7 @@ function calculateQuarterlySummary() {
         }
 
         const safeTitle = act.title.replace(/'/g, "\\'");
-        
-        const hasScore = entry && entry.grade_score !== '' && entry.grade_score !== null && entry.grade_score !== undefined;
-        const isBelowPassing = isIncluded && hasScore && (safeNum(entry.grade_score) < (maxScoreVal * 0.70));
+        const isBelowPassing = isIncluded && hasScore && (scoreVal < (maxScoreVal * 0.70));
 
         const cellBgClass = !isIncluded ? 'bg-slate-100 opacity-50' : (isBelowPassing ? 'bg-red-100' : 'bg-white');
         const inputTextColor = isBelowPassing ? 'text-red-900 font-bold' : 'text-slate-800';
@@ -1352,10 +1279,11 @@ function calculateQuarterlySummary() {
               value="${hasScore ? entry.grade_score : ''}" 
               placeholder="-"
               min="0"
+              max="${maxScoreVal}"
               data-type="${act.type}"
               data-max="${maxScoreVal}"
-              onkeydown="handleScoreTab(event, this)"
               oninput="updateInlineGrade('${l.id}', '${safeTitle}', '${act.type}', ${maxScoreVal}, '${act.date}', this)"
+              onkeydown="handleGradeInputKeydown(event, this)"
               class="grade-input absolute inset-0 w-full h-full text-center border-0 outline-none bg-transparent text-xs ${inputTextColor} focus:bg-blue-50 focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-colors" 
             />
           </td>`;
@@ -1391,7 +1319,7 @@ function calculateQuarterlySummary() {
         <td style="${totalColStyle}" class="cell-pt-total p-2 text-center font-semibold bg-blue-50/50 text-blue-900 border-r border-blue-200 text-xs">
           ${ptRes.totalEarned} / ${ptRes.totalMax}
         </td>
-        <td style="${pctColStyle}" class="cell-pct p-2 text-center font-bold bg-blue-100 text-blue-900 border-r-2 border-blue-300 text-xs">
+        <td style="${pctColStyle}" class="cell-pt-pct p-2 text-center font-bold bg-blue-100 text-blue-900 border-r-2 border-blue-300 text-xs">
           ${ptRes.percentage.toFixed(1)}%
         </td>
 
@@ -1423,7 +1351,7 @@ function calculateQuarterlySummary() {
     `;
   }).join('');
 
-  // 6. BUILD SUMMARY ROW (Below Passing Count & >60% Threshold X Check)
+  // Summary Row (Below Passing Count)
   const generateActivitySummaryCells = (acts) => {
     let html = '';
     const totalLearners = state.learners.length;
@@ -1439,10 +1367,11 @@ function calculateQuarterlySummary() {
       const passingThreshold = act.maxScore * 0.70;
 
       state.learners.forEach(l => {
-        const entry = state.savedGradesLocal.find(g => g.grade_learner === l.id && g.grade_title === act.title);
-        const scoreVal = entry && entry.grade_score !== '' && entry.grade_score !== undefined && entry.grade_score !== null 
-          ? safeNum(entry.grade_score) 
-          : 0;
+        const entry = state.savedGradesLocal.find(
+          g => String(g.grade_learner) === String(l.id) && g.grade_title === act.title
+        );
+        const hasScore = entry && entry.grade_score !== null && entry.grade_score !== undefined && entry.grade_score !== '';
+        const scoreVal = hasScore ? safeNum(entry.grade_score) : 0;
 
         if (scoreVal < passingThreshold) {
           belowPassingCount++;
@@ -1492,31 +1421,88 @@ function calculateQuarterlySummary() {
 
   tbodyContainer.innerHTML = learnersHTML + summaryRowHTML;
 }
+// ------------------------------------------------------------------
+// KEYBOARD NAVIGATION (VERTICAL TABBING)
+// ------------------------------------------------------------------
+function handleGradeInputKeydown(e, currentInput) {
+  // Check if Tab or Enter was pressed (without Shift)
+  if ((e.key === 'Tab' && !e.shiftKey) || e.key === 'Enter') {
+    e.preventDefault();
+
+    const currentTd = currentInput.closest('td');
+    const currentTr = currentInput.closest('tr');
+    if (!currentTd || !currentTr) return;
+
+    // Get index of the current column
+    const colIndex = Array.from(currentTr.children).indexOf(currentTd);
+
+    // Find the next student row
+    const nextTr = currentTr.nextElementSibling;
+    if (nextTr) {
+      // Find the cell in the same column in the next row
+      const targetTd = nextTr.children[colIndex];
+      const targetInput = targetTd ? targetTd.querySelector('input.grade-input') : null;
+
+      if (targetInput) {
+        targetInput.focus();
+        targetInput.select(); // Highlight text for quick overwriting
+      }
+    }
+  } 
+  // Handle Shift + Tab (Move UP to the previous learner in the same column)
+  else if (e.key === 'Tab' && e.shiftKey) {
+    e.preventDefault();
+
+    const currentTd = currentInput.closest('td');
+    const currentTr = currentInput.closest('tr');
+    if (!currentTd || !currentTr) return;
+
+    const colIndex = Array.from(currentTr.children).indexOf(currentTd);
+    const prevTr = currentTr.previousElementSibling;
+
+    if (prevTr) {
+      const targetTd = prevTr.children[colIndex];
+      const targetInput = targetTd ? targetTd.querySelector('input.grade-input') : null;
+
+      if (targetInput) {
+        targetInput.focus();
+        targetInput.select();
+      }
+    }
+  }
+}
 
 // ------------------------------------------------------------------
-// REAL-TIME INLINE GRADE UPDATER
+// 4. REAL-TIME INLINE GRADE UPDATER
 // ------------------------------------------------------------------
 async function updateInlineGrade(learnerId, title, type, maxScore, dateStr, inputEl) {
   if (!state.selectedSubject) return;
 
-  const rawValue = inputEl.value;
-  // Allow empty input without forcing 0 immediately during typing, 
-  // but treat empty as null/0 for calculation purposes.
+  const rawValue = inputEl.value.trim();
   const scoreVal = rawValue === '' ? null : parseFloat(rawValue);
+  const normalizedType = type.startsWith('QA') ? 'QA' : type;
 
-  // 1. Find or create the grade record in local memory state
+  const targetLearnerId = String(learnerId);
+  const targetSubjectId = String(state.selectedSubject.id);
+
+  // 1. Update in-memory state
   let gradeRecord = state.savedGradesLocal.find(
-    g => g.grade_learner === learnerId && g.grade_title === title
+    g => String(g.grade_learner) === targetLearnerId && 
+         g.grade_title === title && 
+         String(g.grade_subject) === targetSubjectId
   );
 
   if (gradeRecord) {
     gradeRecord.grade_score = scoreVal;
+    gradeRecord.grade_type = normalizedType;
+    gradeRecord.grade_max_score = maxScore;
+    gradeRecord.grade_date = dateStr || gradeRecord.grade_date || null;
   } else {
     gradeRecord = {
       grade_learner: learnerId,
       grade_subject: state.selectedSubject.id,
       grade_title: title,
-      grade_type: type,
+      grade_type: normalizedType,
       grade_max_score: maxScore,
       grade_date: dateStr || null,
       grade_score: scoreVal
@@ -1524,401 +1510,126 @@ async function updateInlineGrade(learnerId, title, type, maxScore, dateStr, inpu
     state.savedGradesLocal.push(gradeRecord);
   }
 
-  // 2. Immediately recalculate and update only this student's DOM row
+  // 2. Immediately recalculate totals for the row
   const rowEl = inputEl.closest('tr');
   if (rowEl) {
     updateSingleRowSummary(rowEl, learnerId);
   }
 
-  // 3. Queue the change for background database sync / upsert
-  const syncPayload = {
-    grade_learner: learnerId,
-    grade_subject: state.selectedSubject.id,
-    grade_title: title,
-    grade_type: type,
-    grade_max_score: maxScore,
-    grade_date: dateStr || null,
-    grade_score: scoreVal !== null ? scoreVal : 0
-  };
+  // 3. Direct Upsert to Supabase
+  try {
+    const { error } = await supabaseClient
+      .from('er_grades')
+      .upsert([{
+        grade_learner: learnerId,
+        grade_subject: state.selectedSubject.id,
+        grade_title: title,
+        grade_type: normalizedType,
+        grade_max_score: maxScore,
+        grade_date: dateStr || null,
+        grade_score: scoreVal
+      }], { onConflict: 'grade_learner,grade_subject,grade_title' });
 
-  queueForSync('er_grades', syncPayload);
-}
-
-    // ------------------------------------------------------------------
-    // 6. ACTIVITY COLUMN MANAGEMENT & EDIT / DELETE LOGIC
-    // ------------------------------------------------------------------
-
-    function editActivityModal(oldTitle) {
-    if (!state.selectedSubject) return;
-
-    const current = state.savedGradesLocal.find(
-        g => g.grade_title === oldTitle && g.grade_subject === state.selectedSubject.id
-    );
-    if (!current) return;
-
-    // Populate form fields
-    document.getElementById('edit-old-title').value = oldTitle;
-    document.getElementById('edit-title').value = current.grade_title || '';
-    document.getElementById('edit-date').value = current.grade_date || '';
-    
-    // Normalize type selection (WW, PT, QA)
-    let typeVal = 'WW';
-    if (current.grade_type) {
-        if (current.grade_type.startsWith('QA')) typeVal = 'QA';
-        else if (current.grade_type.startsWith('PT')) typeVal = 'PT';
-        else typeVal = 'WW';
+    if (error) {
+      console.error("Supabase score update error:", error);
+      inputEl.classList.add('bg-red-200'); // Visual indicator if save failed
+    } else {
+      inputEl.classList.remove('bg-red-200');
     }
-    document.getElementById('edit-type').value = typeVal;
-    document.getElementById('edit-max').value = current.grade_max_score || 100;
-
-    // Show Modal
-    const modal = document.getElementById('edit-activity-modal');
-    if (modal) modal.classList.remove('hidden');
-    }
-
-    function closeEditModal() {
-    const modal = document.getElementById('edit-activity-modal');
-    if (modal) modal.classList.add('hidden');
-    }
-
-    async function saveActivityEdit(event) {
-    event.preventDefault();
-    if (!state.selectedSubject) return;
-
-    const oldTitle = document.getElementById('edit-old-title').value;
-    const newTitle = document.getElementById('edit-title').value.trim();
-    const newDate = document.getElementById('edit-date').value;
-    const newType = document.getElementById('edit-type').value;
-    const newMax = parseFloat(document.getElementById('edit-max').value) || 100;
-
-    const saveBtn = document.getElementById('edit-save-btn');
-    if (saveBtn) {
-        saveBtn.innerText = "Saving...";
-        saveBtn.disabled = true;
-    }
-
-    // 1. Update local state
-    state.savedGradesLocal.forEach(g => {
-        if (g.grade_title === oldTitle && g.grade_subject === state.selectedSubject.id) {
-        g.grade_title = newTitle;
-        g.grade_date = newDate;
-        g.grade_type = newType;
-        g.grade_max_score = newMax;
-        }
-    });
-
-    // 2. Sync changes with Supabase
-    try {
-        const { error } = await supabaseClient
-        .from('er_grades')
-        .update({
-            grade_title: newTitle,
-            grade_date: newDate || null,
-            grade_type: newType,
-            grade_max_score: newMax
-        })
-        .eq('grade_subject', state.selectedSubject.id)
-        .eq('grade_title', oldTitle);
-
-        if (error) throw error;
-    } catch (err) {
-        console.error("Error updating activity:", err);
-        alert("Failed to sync activity updates with database: " + err.message);
-    } finally {
-        if (saveBtn) {
-        saveBtn.innerText = "Save Changes";
-        saveBtn.disabled = false;
-        }
-        closeEditModal();
-        calculateQuarterlySummary();
-    }
-    }
-
-    // DELETE ACTIVITY COLUMN & DB SYNC
-    async function deleteActivityColumn(titleToDelete) {
-      if (!state.selectedSubject) return;
-
-      const confirmDelete = confirm(`Are you sure you want to delete "${titleToDelete}" and all associated learner scores?`);
-      if (!confirmDelete) return;
-
-      // Filter out locally
-      state.savedGradesLocal = state.savedGradesLocal.filter(
-        g => !(g.grade_title === titleToDelete && g.grade_subject === state.selectedSubject.id)
-      );
-
-      // Remove from Supabase DB
-      const { error } = await supabaseClient
-        .from('er_grades')
-        .delete()
-        .eq('grade_subject', state.selectedSubject.id)
-        .eq('grade_title', titleToDelete);
-
-      if (error) {
-        console.error("Error deleting activity from DB:", error);
-        alert("Failed to delete activity from Supabase: " + error.message);
-      } else {
-        alert(`Deleted activity "${titleToDelete}".`);
-      }
-
-      calculateQuarterlySummary();
-    }
+  } catch (err) {
+    console.error("Network error while updating score:", err);
+    inputEl.classList.add('bg-red-200');
+  }
+}   
 
 // ------------------------------------------------------------------
-// 4. OFFLINE SYNC ENGINE (Strict Schema Alignment)
+// 5. UPDATE SINGLE ROW SUMMARY (DOM RECALCULATION)
 // ------------------------------------------------------------------
-function updateOnlineStatus() {
-  const isOnline = navigator.onLine;
-  const statusBadge = document.getElementById('sync-status');
-  if (!statusBadge) return;
-
-  if (isOnline) {
-    statusBadge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500 text-white flex items-center gap-2";
-    statusBadge.innerHTML = `<span class="w-2 h-2 bg-white rounded-full animate-ping"></span> Online`;
-    syncOfflineData();
-  } else {
-    statusBadge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-amber-500 text-white flex items-center gap-2";
-    statusBadge.innerHTML = `Offline (Saving Locally)`;
-  }
-}
-
-window.addEventListener('online', updateOnlineStatus);
-window.addEventListener('offline', updateOnlineStatus);
-
-function getLocalOutbox() {
-  return JSON.parse(localStorage.getItem('er_outbox') || '[]');
-}
-
-function queueForSync(table, record) {
-  const outbox = getLocalOutbox();
-  outbox.push({ table, record, timestamp: Date.now() });
-  localStorage.setItem('er_outbox', JSON.stringify(outbox));
-  if (navigator.onLine) syncOfflineData();
-}
-
-async function syncOfflineData() {
-  const outbox = getLocalOutbox();
-  if (outbox.length === 0) return;
-
-  const validColumns = [
-    'uuid', 'created_at', 'progress_lc', 'progress_learner', 
-    'subject', 'progress_at', 'progress_above', 
-    'progress_below', 'progress_result', 'progress_topic'
-  ];
-
-  const remaining = [];
-  for (const item of outbox) {
-    try {
-      const recordKeys = Object.keys(item.record || {});
-      const hasInvalidCol = recordKeys.some(key => !validColumns.includes(key));
-      
-      if (hasInvalidCol) {
-        console.warn("Discarding outdated outbox item with invalid columns:", item);
-        continue;
-      }
-
-      const { error } = await supabaseClient.from(item.table).insert([item.record]);
-      if (error) throw error;
-    } catch (err) {
-      console.error(`Sync failed for table ${item.table}:`, err);
-      remaining.push(item);
-    }
-  }
-
-  localStorage.setItem('er_outbox', JSON.stringify(remaining));
-}
-    
-// Helper function to recalculate and update only a single student's row
 function updateSingleRowSummary(rowEl, learnerId) {
   if (!state.selectedSubject) return;
 
   const safeNum = (val) => {
-    const num = parseFloat(val);
-    return isNaN(num) ? 0 : num;
+    const n = parseFloat(val);
+    return isNaN(n) ? 0 : n;
   };
 
-  const getUniqueActivities = (typePredicate) => {
-    const map = new Map();
-    state.savedGradesLocal.forEach(g => {
-      if (typePredicate(g.grade_type) && g.grade_title) {
-        if (!map.has(g.grade_title)) {
-          map.set(g.grade_title, { 
-            title: g.grade_title, 
-            maxScore: safeNum(g.grade_max_score) || 100, 
-            type: g.grade_type,
-            date: g.grade_date || ''
-          });
-        }
-      }
-    });
-    return Array.from(map.values());
-  };
+  // 1. Get weights from subject settings (default to 30/50/20 if unconfigured)
+  const wwWeight = (safeNum(state.selectedSubject.subject_ww_percent) || 30) / 100;
+  const ptWeight = (safeNum(state.selectedSubject.subject_pt_percent) || 50) / 100;
+  const qaWeight = (safeNum(state.selectedSubject.subject_qa_percent) || 20) / 100;
 
-  const wwActs = getUniqueActivities(t => t === 'WW');
-  const ptActs = getUniqueActivities(t => t === 'PT');
-  const qaActs = getUniqueActivities(t => t && t.startsWith('QA'));
+  // 2. Gather excluded activities if your UI has activity toggle buttons
+  const excludedTitles = new Set();
+  document.querySelectorAll('button.activity-toggle-btn').forEach(btn => {
+    if (btn.getAttribute('data-included') === 'false') {
+      excludedTitles.add(btn.getAttribute('data-activity-title'));
+    }
+  });
 
-  const wwPercent = safeNum(state.selectedSubject.subject_ww_percent) || 30;
-  const ptPercent = safeNum(state.selectedSubject.subject_pt_percent) || 50;
-  const qaPercent = safeNum(state.selectedSubject.subject_qa_percent) || 20;
-
-  const wwWeight = wwPercent / 100;
-  const ptWeight = ptPercent / 100;
-  const qaWeight = qaPercent / 100;
-
-  const studentGrades = state.savedGradesLocal.filter(g => g.grade_learner === learnerId);
-
-  const calcCategoryData = (activities) => {
-    if (activities.length === 0) return { totalEarned: 0, totalMax: 0, percentage: 0 };
-    let totalEarned = 0;
-    let totalMax = 0;
-
-    activities.forEach(act => {
-      const entry = studentGrades.find(g => g.grade_title === act.title);
-      const scoreVal = entry && entry.grade_score !== '' && entry.grade_score !== undefined && entry.grade_score !== null 
-        ? safeNum(entry.grade_score) 
-        : 0;
-      totalEarned += scoreVal;
-      totalMax += safeNum(act.maxScore) || 100;
-    });
-
-    const percentage = totalMax > 0 ? (totalEarned / totalMax) * 100 : 0;
-    return { totalEarned, totalMax, percentage };
-  };
-
-  const wwRes = calcCategoryData(wwActs);
-  const ptRes = calcCategoryData(ptActs);
-  const qaRes = calcCategoryData(qaActs);
-
-  const initialGrade = (wwRes.percentage * wwWeight) + (ptRes.percentage * ptWeight) + (qaRes.percentage * qaWeight);
-  const finalTransmuted = typeof calculateTransmuted === 'function' ? calculateTransmuted(initialGrade) : Math.round(initialGrade);
-  const isPassed = finalTransmuted >= 75;
-
-  // Update DOM cells for this row only
-  const wwTotalCell = rowEl.querySelector('.cell-ww-total');
-  const wwPctCell = rowEl.querySelector('.cell-ww-pct');
-  const ptTotalCell = rowEl.querySelector('.cell-pt-total');
-  const ptPctCell = rowEl.querySelector('.cell-pt-pct') || rowEl.querySelector('.cell-pct');
-  const qaTotalCell = rowEl.querySelector('.cell-qa-total');
-  const qaPctCell = rowEl.querySelector('.cell-qa-pct');
-  const initialGradeCell = rowEl.querySelector('.cell-initial-grade');
-  const transmutedGradeCell = rowEl.querySelector('.cell-transmuted-grade');
-  const remarksCell = rowEl.querySelector('.cell-remarks');
-
-  if (wwTotalCell) wwTotalCell.textContent = `${wwRes.totalEarned} / ${wwRes.totalMax}`;
-  if (wwPctCell) wwPctCell.textContent = `${wwRes.percentage.toFixed(1)}%`;
+  // 3. Loop through all grade inputs in this learner's row
+  const inputs = rowEl.querySelectorAll('input.grade-input');
   
-  if (ptTotalCell) ptTotalCell.textContent = `${ptRes.totalEarned} / ${ptRes.totalMax}`;
-  if (ptPctCell) ptPctCell.textContent = `${ptRes.percentage.toFixed(1)}%`;
+  let wwEarned = 0, wwMax = 0;
+  let ptEarned = 0, ptMax = 0;
+  let qaEarned = 0, qaMax = 0;
 
-  if (qaTotalCell) qaTotalCell.textContent = `${qaRes.totalEarned} / ${qaRes.totalMax}`;
-  if (qaPctCell) qaPctCell.textContent = `${qaRes.percentage.toFixed(1)}%`;
+  inputs.forEach(input => {
+    const title = input.dataset.title || input.getAttribute('oninput')?.split("'")[3];
+    const type = input.dataset.type;
+    const maxScore = safeNum(input.dataset.max) || 100;
+    const rawVal = input.value.trim();
 
-  if (initialGradeCell) initialGradeCell.textContent = `${initialGrade.toFixed(2)}%`;
-  if (transmutedGradeCell) transmutedGradeCell.textContent = finalTransmuted;
-  if (remarksCell) {
-    remarksCell.innerHTML = `
-      <span class="inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
-        isPassed 
-          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
-          : 'bg-red-100 text-red-800 border border-red-300'
-      }">
-        ${isPassed ? 'PASSED' : 'FAILED'}
-      </span>
-    `;
-  }
-}
-    
-function handleScoreTab(event, inputEl) {
-  if (event.key === 'Tab' || event.key === 'Enter') {
-    event.preventDefault(); // Stop default horizontal tabbing
-
-    const currentCell = inputEl.closest('td');
-    const currentRow = inputEl.closest('tr');
-    if (!currentCell || !currentRow) return;
-
-    // Find current column index
-    const cellIndex = Array.from(currentRow.children).indexOf(currentCell);
-
-    // Go to next row (or previous row if Shift + Tab)
-    const targetRow = event.shiftKey ? currentRow.previousElementSibling : currentRow.nextElementSibling;
-
-    if (targetRow) {
-      const targetCell = targetRow.children[cellIndex];
-      if (targetCell) {
-        const targetInput = targetCell.querySelector('input');
-        if (targetInput) {
-          targetInput.focus();
-          targetInput.select(); // Highlights text for fast typing
-        }
+    if (rawVal !== '' && !isNaN(rawVal) && !excludedTitles.has(title)) {
+      const score = parseFloat(rawVal);
+      if (type === 'WW') {
+        wwEarned += score;
+        wwMax += maxScore;
+      } else if (type === 'PT') {
+        ptEarned += score;
+        ptMax += maxScore;
+      } else if (type === 'QA' || type.startsWith('QA')) {
+        qaEarned += score;
+        qaMax += maxScore;
       }
     }
-  }
-}
+  });
 
-function recalculateRowSummary(learnerId) {
-  const learnerGrades = state.savedGradesLocal.filter(g => g.grade_learner === learnerId);
+  // 4. Calculate Percentage Scores per Category
+  const wwPercentageScore = wwMax > 0 ? (wwEarned / wwMax) * 100 : 0;
+  const ptPercentageScore = ptMax > 0 ? (ptEarned / ptMax) * 100 : 0;
+  const qaPercentageScore = qaMax > 0 ? (qaEarned / qaMax) * 100 : 0;
 
-  const getUniqueActivities = (typePredicate) => {
-    const map = new Map();
-    state.savedGradesLocal.forEach(g => {
-      if (typePredicate(g.grade_type) && g.grade_title) {
-        if (!map.has(g.grade_title)) {
-          map.set(g.grade_title, { 
-            title: g.grade_title, 
-            maxScore: g.grade_max_score || 100, 
-            type: g.grade_type
-          });
-        }
-      }
-    });
-    return Array.from(map.values());
+  // 5. Calculate Initial Grade (Weighted Sum)
+  const initialGrade = (wwPercentageScore * wwWeight) + 
+                       (ptPercentageScore * ptWeight) + 
+                       (qaPercentageScore * qaWeight);
+
+  // 6. Calculate Transmuted Grade (uses your global transmutation function if available)
+  const transmutedGrade = typeof calculateTransmuted === 'function' 
+    ? calculateTransmuted(initialGrade) 
+    : Math.round(initialGrade);
+
+  const isPassed = transmutedGrade >= 75;
+
+  // 7. Update DOM Summary Cells for this Row
+  const setCellText = (selector, text) => {
+    const el = rowEl.querySelector(selector);
+    if (el) el.textContent = text;
   };
 
-  const wwActs = getUniqueActivities(t => t === 'WW');
-  const ptActs = getUniqueActivities(t => t === 'PT');
-  const qaActs = getUniqueActivities(t => t && t.startsWith('QA'));
+  setCellText('.cell-ww-total', `${wwEarned} / ${wwMax}`);
+  setCellText('.cell-ww-pct', `${wwPercentageScore.toFixed(1)}%`);
+  
+  setCellText('.cell-pt-total', `${ptEarned} / ${ptMax}`);
+  setCellText('.cell-pt-pct', `${ptPercentageScore.toFixed(1)}%`);
+  
+  setCellText('.cell-qa-total', `${qaEarned} / ${qaMax}`);
+  setCellText('.cell-qa-pct', `${qaPercentageScore.toFixed(1)}%`);
 
-  const wwWeight = (state.selectedSubject.subject_ww_percent || 30) / 100;
-  const ptWeight = (state.selectedSubject.subject_pt_percent || 50) / 100;
-  const qaWeight = (state.selectedSubject.subject_qa_percent || 20) / 100;
+  setCellText('.cell-initial-grade', `${initialGrade.toFixed(2)}%`);
+  setCellText('.cell-transmuted-grade', transmutedGrade);
 
-  const calcCategoryPct = (activities) => {
-    if (activities.length === 0) return 0;
-    let sumPct = 0;
-    activities.forEach(act => {
-      const entry = learnerGrades.find(g => g.grade_title === act.title);
-      const scoreVal = (entry && entry.grade_score !== undefined) ? entry.grade_score : '';
-      if (scoreVal !== '') {
-        sumPct += (parseFloat(scoreVal) / act.maxScore) * 100;
-      }
-    });
-    return sumPct / activities.length;
-  };
-
-  const wwPct = calcCategoryPct(wwActs);
-  const ptPct = calcCategoryPct(ptActs);
-  const qaPct = calcCategoryPct(qaActs);
-
-  const initialGrade = (wwPct * wwWeight) + (ptPct * ptWeight) + (qaPct * qaWeight);
-  const finalTransmuted = calculateTransmuted(initialGrade);
-  const isPassed = finalTransmuted >= 75;
-
-  // Target row directly in DOM without touching input nodes
-  const row = document.querySelector(`tr[data-learner-id="${learnerId}"]`);
-  if (!row) return;
-
-  const wwCell = row.querySelector('.cell-ww-total');
-  const ptCell = row.querySelector('.cell-pt-total');
-  const qaCell = row.querySelector('.cell-qa-total');
-  const initCell = row.querySelector('.cell-initial-grade');
-  const transCell = row.querySelector('.cell-transmuted-grade');
-  const remarksCell = row.querySelector('.cell-remarks');
-
-  if (wwCell) wwCell.innerText = `${wwPct.toFixed(1)}%`;
-  if (ptCell) ptCell.innerText = `${ptPct.toFixed(1)}%`;
-  if (qaCell) qaCell.innerText = `${qaPct.toFixed(1)}%`;
-  if (initCell) initCell.innerText = `${initialGrade.toFixed(2)}%`;
-  if (transCell) transCell.innerText = finalTransmuted;
+  const remarksCell = rowEl.querySelector('.cell-remarks');
   if (remarksCell) {
     remarksCell.innerHTML = `
       <span class="inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
@@ -1930,35 +1641,153 @@ function recalculateRowSummary(learnerId) {
       </span>`;
   }
 }
+// ------------------------------------------------------------------
+// 6. ACTIVITY MODAL EDIT & DELETE LOGIC
+// ------------------------------------------------------------------
+function editActivityModal(oldTitle) {
+  if (!state.selectedSubject) return;
 
-    async function addLearnerModal() {
-      if (!state.selectedSubject || !state.selectedSubject.subject_section) {
-        return alert("Please select a subject first.");
-      }
+  const current = state.savedGradesLocal.find(
+    g => g.grade_title === oldTitle && g.grade_subject === state.selectedSubject.id
+  );
+  if (!current) return;
 
-      const name = prompt("Enter Learner's Full Name (Last Name, First Name):");
-      if (!name || !name.trim()) return;
+  // Populate form fields
+  document.getElementById('edit-old-title').value = oldTitle;
+  document.getElementById('edit-title').value = current.grade_title || '';
+  document.getElementById('edit-date').value = current.grade_date || '';
 
-      const { error } = await supabaseClient
-        .from('er_learners')
-        .insert([{ 
-          learner_name: name.trim(), 
-          learner_section: state.selectedSubject.subject_section 
-        }]);
+  // Normalize type selection (WW, PT, QA)
+  let typeVal = 'WW';
+  if (current.grade_type) {
+    if (current.grade_type.startsWith('QA')) typeVal = 'QA';
+    else if (current.grade_type.startsWith('PT')) typeVal = 'PT';
+    else typeVal = 'WW';
+  }
+  document.getElementById('edit-type').value = typeVal;
+  document.getElementById('edit-max').value = current.grade_max_score || 100;
 
-      if (error) {
-        alert("Error adding learner: " + error.message);
-      } else {
-        alert(`Added ${name} successfully!`);
-        handleSubjectChange();
-      }
+  // Show Modal
+  const modal = document.getElementById('edit-activity-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeEditModal() {
+  const modal = document.getElementById('edit-activity-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function saveActivityEdit(event) {
+  event.preventDefault();
+  if (!state.selectedSubject) return;
+
+  const oldTitle = document.getElementById('edit-old-title').value;
+  const newTitle = document.getElementById('edit-title').value.trim();
+  const newDate = document.getElementById('edit-date').value;
+  const newType = document.getElementById('edit-type').value;
+  const newMax = parseFloat(document.getElementById('edit-max').value) || 100;
+
+  const saveBtn = document.getElementById('edit-save-btn');
+  if (saveBtn) {
+    saveBtn.innerText = "Saving...";
+    saveBtn.disabled = true;
+  }
+
+  // 1. Update local state
+  state.savedGradesLocal.forEach(g => {
+    if (g.grade_title === oldTitle && g.grade_subject === state.selectedSubject.id) {
+      g.grade_title = newTitle;
+      g.grade_date = newDate;
+      g.grade_type = newType;
+      g.grade_max_score = newMax;
     }
+  });
 
-    function handleScoreTab(event, currentInput) {
-  if (event.key !== 'Tab') return;
+  // 2. Sync changes directly with Supabase
+  try {
+    const { error } = await supabaseClient
+      .from('er_grades')
+      .update({
+        grade_title: newTitle,
+        grade_date: newDate || null,
+        grade_type: newType,
+        grade_max_score: newMax
+      })
+      .eq('grade_subject', state.selectedSubject.id)
+      .eq('grade_title', oldTitle);
+
+    if (error) throw error;
+  } catch (err) {
+    console.error("Error updating activity:", err);
+    alert("Failed to sync activity updates with database: " + err.message);
+  } finally {
+    if (saveBtn) {
+      saveBtn.innerText = "Save Changes";
+      saveBtn.disabled = false;
+    }
+    closeEditModal();
+    calculateQuarterlySummary();
+  }
+}
+
+async function deleteActivityColumn(titleToDelete) {
+  if (!state.selectedSubject) return;
+
+  const confirmDelete = confirm(`Are you sure you want to delete "${titleToDelete}" and all associated learner scores?`);
+  if (!confirmDelete) return;
+
+  // Filter out locally
+  state.savedGradesLocal = state.savedGradesLocal.filter(
+    g => !(g.grade_title === titleToDelete && g.grade_subject === state.selectedSubject.id)
+  );
+
+  // Remove from Supabase DB
+  try {
+    const { error } = await supabaseClient
+      .from('er_grades')
+      .delete()
+      .eq('grade_subject', state.selectedSubject.id)
+      .eq('grade_title', titleToDelete);
+
+    if (error) throw error;
+  } catch (err) {
+    console.error("Error deleting activity from DB:", err);
+    alert("Failed to delete activity from Supabase: " + err.message);
+  }
+
+  calculateQuarterlySummary();
+}
+
+// ------------------------------------------------------------------
+// 1. ONLINE STATUS MONITOR
+// ------------------------------------------------------------------
+function updateOnlineStatus() {
+  const isOnline = navigator.onLine;
+  const statusBadge = document.getElementById('sync-status');
+  if (!statusBadge) return;
+
+  if (isOnline) {
+    statusBadge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500 text-white flex items-center gap-2";
+    statusBadge.innerHTML = `<span class="w-2 h-2 bg-white rounded-full animate-ping"></span> Online`;
+  } else {
+    statusBadge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-amber-500 text-white flex items-center gap-2";
+    statusBadge.innerHTML = `Offline`;
+  }
+}
+
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+
+// ------------------------------------------------------------------
+// 2. VERTICAL / COLUMN-WRAP KEYBOARD NAVIGATION
+// ------------------------------------------------------------------
+function handleScoreTab(event, currentInput) {
+  if (event.key !== 'Tab' && event.key !== 'Enter') return;
 
   const currentTd = currentInput.closest('td');
   const currentTr = currentInput.closest('tr');
+  if (!currentTd || !currentTr) return;
+
   const tbody = currentTr.parentElement;
   const cellIndex = currentTd.cellIndex;
 
@@ -1967,19 +1796,19 @@ function recalculateRowSummary(learnerId) {
     : currentTr.nextElementSibling;
 
   // 1. Move to the next/previous learner in the SAME activity column
-  if (targetTr) {
+  if (targetTr && !targetTr.classList.contains('bg-slate-100')) {
     const targetTd = targetTr.cells[cellIndex];
     if (targetTd) {
       const targetInput = targetTd.querySelector('input');
       if (targetInput) {
         event.preventDefault();
         targetInput.focus();
-        targetInput.select(); // Highlights text for instant overwriting
+        targetInput.select(); // Highlight for rapid score entry
         return;
       }
     }
   } 
-  
+
   // 2. Column Auto-Wrap: Reached bottom of column -> wrap to top of NEXT activity column
   if (!event.shiftKey && tbody.firstElementChild) {
     const firstRow = tbody.firstElementChild;
@@ -1995,17 +1824,61 @@ function recalculateRowSummary(learnerId) {
   }
 
   // 3. Shift+Tab Auto-Wrap: Reached top of column -> wrap to bottom of PREVIOUS activity column
-  if (event.shiftKey && tbody.lastElementChild) {
-    const lastRow = tbody.lastElementChild;
-    for (let i = cellIndex - 1; i >= 0; i--) {
-      const prevInput = lastRow.cells[i].querySelector('input');
-      if (prevInput) {
-        event.preventDefault();
-        prevInput.focus();
-        prevInput.select();
-        return;
+  if (event.shiftKey && tbody.children.length > 1) {
+    // Pick the last learner row before the summary row
+    const learnerRows = Array.from(tbody.children).filter(r => !r.classList.contains('bg-slate-100'));
+    const lastLearnerRow = learnerRows[learnerRows.length - 1];
+
+    if (lastLearnerRow) {
+      for (let i = cellIndex - 1; i >= 0; i--) {
+        const prevInput = lastLearnerRow.cells[i].querySelector('input');
+        if (prevInput) {
+          event.preventDefault();
+          prevInput.focus();
+          prevInput.select();
+          return;
+        }
       }
     }
+  }
+}
+
+// ------------------------------------------------------------------
+// 3. ROW RECALCULATION & LEARNER MODAL
+// ------------------------------------------------------------------
+function recalculateRowSummary(learnerId) {
+  const row = document.querySelector(`tr[data-learner-id="${learnerId}"]`);
+  if (!row) return;
+
+  if (typeof updateSingleRowSummary === 'function') {
+    updateSingleRowSummary(row, learnerId);
+  }
+}
+
+async function addLearnerModal() {
+  if (!state.selectedSubject || !state.selectedSubject.subject_section) {
+    return alert("Please select a subject first.");
+  }
+
+  const name = prompt("Enter Learner's Full Name (Last Name, First Name):");
+  if (!name || !name.trim()) return;
+
+  try {
+    const { error } = await supabaseClient
+      .from('er_learners')
+      .insert([{ 
+        learner_name: name.trim(), 
+        learner_section: state.selectedSubject.subject_section 
+      }]);
+
+    if (error) throw error;
+
+    alert(`Added ${name} successfully!`);
+    if (typeof handleSubjectChange === 'function') {
+      handleSubjectChange();
+    }
+  } catch (err) {
+    alert("Error adding learner: " + err.message);
   }
 }
 
@@ -2706,12 +2579,6 @@ async function deleteSelectedLc() {
   }
 }
 
-// ------------------------------------------------------------------
-// AUTOMATED PROGRESS MONITORING CALCULATION & COLOR-CODING
-// ------------------------------------------------------------------
-// ------------------------------------------------------------------
-// AUTOMATED WEIGHTED AVERAGE PROGRESS CALCULATION
-// ------------------------------------------------------------------
 // ------------------------------------------------------------------
 // AUTOMATED WEIGHTED AVERAGE PROGRESS CALCULATION & BADGE UPDATER
 // ------------------------------------------------------------------
