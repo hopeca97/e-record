@@ -1147,43 +1147,51 @@ function calculateQuarterlySummary() {
     return isNaN(d) ? dateStr : d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
   };
 
-  // Build Header Rows
+  // Sticky Header Row Offsets:
+  // Row 1 (Category Groups): top-0, height 38px
+  // Row 2 (Titles / Totals): top-[38px], height 60px
+  // Row 3 (Dates):           top-[98px], height 28px
+  // Row 4 (Max Scores):      top-[126px], height 28px
+
   let headRow1 = `
     <tr class="text-center font-bold text-xs uppercase tracking-wider text-white h-[38px]">
-      <th rowspan="4" style="${nameColStyle}" class="p-3 bg-slate-800 border-r border-slate-700 text-left whitespace-nowrap sticky left-0 top-0 z-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)] align-middle">
+      <th rowspan="4" style="${nameColStyle}" class="p-3 bg-slate-800 border-r border-b border-slate-700 text-left whitespace-nowrap align-middle sticky left-0 top-0 z-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)]">
         Learner Name
       </th>
-      <th colspan="${wwActs.length + 2}" class="p-2 bg-emerald-600 border-r border-emerald-500 sticky top-0 z-40">
+      <th colspan="${wwActs.length + 2}" class="p-2 bg-emerald-600 border-r border-b border-emerald-500 align-middle sticky top-0 z-40">
         Written Work (${wwPercent}%)
       </th>
-      <th colspan="${ptActs.length + 2}" class="p-2 bg-blue-600 border-r border-blue-500 sticky top-0 z-40">
+      <th colspan="${ptActs.length + 2}" class="p-2 bg-blue-600 border-r border-b border-blue-500 align-middle sticky top-0 z-40">
         Performance Tasks (${ptPercent}%)
       </th>
-      <th colspan="${qaActs.length + 2}" class="p-2 bg-amber-600 border-r border-amber-500 sticky top-0 z-40">
+      <th colspan="${qaActs.length + 2}" class="p-2 bg-amber-600 border-r border-b border-amber-500 align-middle sticky top-0 z-40">
         Quarterly Assessment (${qaPercent}%)
       </th>
-      <th colspan="3" class="p-2 bg-slate-700 sticky top-0 z-40">Final Grade</th>
+      <th colspan="3" class="p-2 bg-slate-700 border-b border-slate-600 align-middle sticky top-0 z-40">Final Grade</th>
     </tr>
   `;
 
-  let headRow2 = `<tr class="bg-slate-100/80 text-xs font-semibold text-slate-700 border-b border-slate-200 h-[46px]">`;
-  let headRow3 = `<tr class="bg-slate-50 text-[10px] text-slate-500 border-b border-slate-200 h-[28px]">`;
-  let headRow4 = `<tr class="bg-slate-100/80 text-[10px] font-medium border-b border-slate-200 h-[28px]">`;
+  let headRow2 = `<tr class="bg-slate-100 text-xs font-semibold text-slate-700">`;
+  let headRow3 = `<tr class="bg-slate-50 text-[10px] text-slate-500 h-[28px]">`;
+  let headRow4 = `<tr class="bg-slate-100 text-[10px] font-medium h-[28px]">`;
 
   const addActivityHeaderColumns = (acts, colorClass) => {
+    const bgSolid = colorClass === 'emerald' ? 'bg-emerald-50' : colorClass === 'blue' ? 'bg-blue-50' : 'bg-amber-50';
+
     acts.forEach(act => {
       const safeTitle = act.title.replace(/'/g, "\\'");
       const isIncluded = !excludedTitles.has(act.title);
       const btnBgClass = isIncluded 
-        ? `bg-${colorClass}-50/60 hover:bg-${colorClass}-100 text-${colorClass}-700` 
+        ? `bg-${colorClass}-100 hover:bg-${colorClass}-200 text-${colorClass}-800` 
         : 'bg-slate-200 text-slate-400 line-through';
       
       headRow2 += `
-        <th style="${actColStyle}" class="relative p-2 border-r border-slate-200 bg-${colorClass}-50/50 text-center align-top overflow-hidden sticky top-[38px] z-40 h-[46px]">
-          <div class="absolute inset-0 bg-white -z-10"></div>
-          <div class="relative z-10 flex items-center justify-between gap-1 h-full">
-            <span class="font-bold text-slate-800 text-left truncate flex-grow leading-tight" title="${act.title}">${act.title}</span>
-            <div class="flex items-center gap-0.5 opacity-80 hover:opacity-100 flex-shrink-0">
+        <th style="${actColStyle}" class="p-1.5 border-r border-b border-slate-200 ${bgSolid} text-center align-top overflow-hidden h-[60px] sticky top-[38px] z-40">
+          <div class="flex items-start justify-between gap-1 h-full w-full">
+            <span class="font-bold text-slate-800 text-left line-clamp-3 break-words whitespace-normal text-[11px] leading-tight flex-grow" title="${act.title}">
+              ${act.title}
+            </span>
+            <div class="flex items-center gap-0.5 opacity-80 hover:opacity-100 flex-shrink-0 pt-0.5">
               <button onclick="editActivityModal('${safeTitle}')" class="text-slate-400 hover:text-blue-600 transition-colors" title="Edit Activity">✏️</button>
               <button onclick="deleteActivityColumn('${safeTitle}')" class="text-slate-400 hover:text-red-600 transition-colors" title="Delete Activity">🗑️</button>
             </div>
@@ -1191,20 +1199,18 @@ function calculateQuarterlySummary() {
         </th>`;
 
       headRow3 += `
-        <th style="${actColStyle}" class="relative p-1.5 border-r border-slate-200 text-center bg-${colorClass}-50/30 overflow-hidden sticky top-[84px] z-40 h-[28px]">
-          <div class="absolute inset-0 bg-white -z-10"></div>
-          <span class="relative z-10">${formatDate(act.date) || '-'}</span>
+        <th style="${actColStyle}" class="p-1.5 border-r border-b border-slate-200 text-center ${bgSolid} align-middle overflow-hidden h-[28px] sticky top-[98px] z-40">
+          <span>${formatDate(act.date) || '-'}</span>
         </th>`;
 
       headRow4 += `
-        <th style="${actColStyle}" class="relative p-0 border-r border-slate-200 text-center overflow-hidden sticky top-[112px] z-40 h-[28px]">
-          <div class="absolute inset-0 bg-white -z-10"></div>
+        <th style="${actColStyle}" class="p-0 border-r border-b border-slate-200 text-center align-middle overflow-hidden h-[28px] sticky top-[126px] z-40 bg-white">
           <button 
             type="button"
             data-activity-title="${act.title.replace(/"/g, '&quot;')}"
             data-included="${isIncluded}"
             onclick="toggleActivityInclusion(this)"
-            class="activity-toggle-btn relative z-10 w-full h-full px-1 text-[10px] font-semibold flex items-center justify-center transition-colors ${btnBgClass}"
+            class="activity-toggle-btn w-full h-full px-1 text-[10px] font-semibold flex items-center justify-center transition-colors ${btnBgClass}"
             title="${isIncluded ? 'Included in computation. Click to exclude.' : 'Excluded from computation. Click to include.'}"
           >
             <span>(${act.maxScore} pts)</span>
@@ -1215,24 +1221,24 @@ function calculateQuarterlySummary() {
 
   // Written Work
   addActivityHeaderColumns(wwActs, 'emerald');
-  headRow2 += `<th rowspan="3" style="${totalColStyle}" class="p-2 border-r border-emerald-200 bg-emerald-50 text-emerald-900 font-bold text-center align-middle sticky top-[38px] z-40">WW Total</th>`;
-  headRow2 += `<th rowspan="3" style="${pctColStyle}" class="p-2 border-r-2 border-emerald-300 bg-emerald-100 text-emerald-950 font-bold text-center align-middle sticky top-[38px] z-40">WW %</th>`;
+  headRow2 += `<th rowspan="3" style="${totalColStyle}" class="p-2 border-r border-b border-slate-300 bg-emerald-50 text-emerald-900 font-bold text-center align-middle sticky top-[38px] z-40">WW Total</th>`;
+  headRow2 += `<th rowspan="3" style="${pctColStyle}" class="p-2 border-r-2 border-b border-slate-300 bg-emerald-100 text-emerald-950 font-bold text-center align-middle sticky top-[38px] z-40">WW %</th>`;
 
   // Performance Tasks
   addActivityHeaderColumns(ptActs, 'blue');
-  headRow2 += `<th rowspan="3" style="${totalColStyle}" class="p-2 border-r border-blue-200 bg-blue-50 text-blue-900 font-bold text-center align-middle sticky top-[38px] z-40">PT Total</th>`;
-  headRow2 += `<th rowspan="3" style="${pctColStyle}" class="p-2 border-r-2 border-blue-300 bg-blue-100 text-blue-950 font-bold text-center align-middle sticky top-[38px] z-40">PT %</th>`;
+  headRow2 += `<th rowspan="3" style="${totalColStyle}" class="p-2 border-r border-b border-slate-300 bg-blue-50 text-blue-900 font-bold text-center align-middle sticky top-[38px] z-40">PT Total</th>`;
+  headRow2 += `<th rowspan="3" style="${pctColStyle}" class="p-2 border-r-2 border-b border-slate-300 bg-blue-100 text-blue-950 font-bold text-center align-middle sticky top-[38px] z-40">PT %</th>`;
 
   // Quarterly Assessment
   addActivityHeaderColumns(qaActs, 'amber');
-  headRow2 += `<th rowspan="3" style="${totalColStyle}" class="p-2 border-r border-amber-200 bg-amber-50 text-amber-900 font-bold text-center align-middle sticky top-[38px] z-40">QA Total</th>`;
-  headRow2 += `<th rowspan="3" style="${pctColStyle}" class="p-2 border-r-2 border-amber-300 bg-amber-100 text-amber-950 font-bold text-center align-middle sticky top-[38px] z-40">QA %</th>`;
+  headRow2 += `<th rowspan="3" style="${totalColStyle}" class="p-2 border-r border-b border-slate-300 bg-amber-50 text-amber-900 font-bold text-center align-middle sticky top-[38px] z-40">QA Total</th>`;
+  headRow2 += `<th rowspan="3" style="${pctColStyle}" class="p-2 border-r-2 border-b border-slate-300 bg-amber-100 text-amber-950 font-bold text-center align-middle sticky top-[38px] z-40">QA %</th>`;
 
   // Final Grades
   headRow2 += `
-    <th rowspan="3" style="width: 90px; min-width: 90px; max-width: 90px;" class="p-2 border-r border-slate-200 text-center align-middle sticky top-[38px] z-40 bg-slate-100">Initial %</th>
-    <th rowspan="3" style="width: 100px; min-width: 100px; max-width: 100px;" class="p-2 border-r border-slate-200 text-center font-bold text-blue-900 text-base align-middle sticky top-[38px] z-40 bg-slate-100">Transmuted</th>
-    <th rowspan="3" style="width: 100px; min-width: 100px; max-width: 100px;" class="p-2 text-center align-middle sticky top-[38px] z-40 bg-slate-100">Remarks</th>
+    <th rowspan="3" style="width: 90px; min-width: 90px; max-width: 90px;" class="p-2 border-r border-b border-slate-300 text-center align-middle bg-slate-100 sticky top-[38px] z-40">Initial %</th>
+    <th rowspan="3" style="width: 100px; min-width: 100px; max-width: 100px;" class="p-2 border-r border-b border-slate-300 text-center font-bold text-blue-900 text-base align-middle bg-slate-100 sticky top-[38px] z-40">Transmuted</th>
+    <th rowspan="3" style="width: 100px; min-width: 100px; max-width: 100px;" class="p-2 border-b border-slate-300 text-center align-middle bg-slate-100 sticky top-[38px] z-40">Remarks</th>
   </tr>`;
 
   headRow3 += `</tr>`;
@@ -1421,6 +1427,7 @@ function calculateQuarterlySummary() {
 
   tbodyContainer.innerHTML = learnersHTML + summaryRowHTML;
 }
+
 // ------------------------------------------------------------------
 // KEYBOARD NAVIGATION (VERTICAL TABBING)
 // ------------------------------------------------------------------
