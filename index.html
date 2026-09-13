@@ -1,0 +1,2802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grade Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* Hide number input spinners (Chrome, Safari, Edge, Opera, Firefox) */
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+    }
+    input[type="number"] {
+    appearance: textfield;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col justify-between">
+
+  <!-- ================================================================= -->
+  <!-- 1. LOGIN SCREEN VIEW                                             -->
+  <!-- ================================================================= -->
+  <div id="login-screen" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="bg-blue-900 text-white p-6 text-center">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-800 mb-3">
+          <svg class="w-6 h-6 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+        </div>
+        <h2 class="text-xl font-bold">Grade Portal</h2>
+        <p class="text-xs text-blue-200 mt-1">Sign in with Supabase Auth</p>
+      </div>
+
+      <form id="login-form" onsubmit="handleLogin(event)" class="p-6 space-y-4">
+        <div id="login-error" class="hidden text-xs bg-red-50 text-red-600 border border-red-200 p-3 rounded-lg font-medium"></div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Email Address</label>
+          <input 
+            type="email" 
+            id="login-email" 
+            required 
+            placeholder="teacher@deped.gov.ph" 
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Password</label>
+          <input 
+            type="password" 
+            id="login-password" 
+            required 
+            placeholder="••••••••" 
+            class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"
+          />
+        </div>
+
+        <button 
+          type="submit" 
+          id="login-btn"
+          class="w-full bg-blue-900 hover:bg-blue-800 text-white font-medium py-2.5 rounded-lg text-sm transition-colors shadow-sm"
+        >
+          Sign In
+        </button>
+      </form>
+    </div>
+  </div>
+
+<!-- ================================================================= -->
+  <!-- 2. DASHBOARD VIEW                                                 -->
+  <!-- ================================================================= -->
+  <div id="dashboard-screen" class="hidden h-screen flex flex-col overflow-hidden">
+    <!-- Top Header -->
+    <header class="bg-blue-900 text-white p-4 shadow-md flex justify-between items-center shrink-0">
+      <div>
+        <h1 class="text-xl font-bold">Grade Portal</h1>
+        <p class="text-xs text-blue-200">S.Y. 2026-2027 • Offline-First Sync Engine</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <div id="sync-status" class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500 text-white flex items-center gap-2">
+          <span class="w-2 h-2 bg-white rounded-full animate-ping"></span>
+          Online
+        </div>
+        <div class="flex items-center gap-2 border-l border-blue-800 pl-4">
+          <span id="user-display" class="text-xs font-medium text-blue-100"></span>
+          <!-- 
+          <button onclick="addLearnerModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-semibold shadow-sm transition-colors flex items-center gap-1">
+            <span>+ Add Learner</span>
+          </button>
+          -->
+          <button onclick="handleLogout()" class="bg-blue-800 hover:bg-red-700 text-white px-3 py-1 rounded text-xs transition-colors">
+            Logout
+          </button>
+        </div>
+      </div>
+    </header>
+
+<main class="w-full px-4 sm:px-8 py-4 space-y-4 flex-1 flex flex-col overflow-hidden">
+
+  <!-- Main Navigation Tabs -->
+  <div class="flex border-b border-slate-200 bg-slate-100 px-4 pt-2 gap-2 shrink-0">
+    <button onclick="switchMainTab('grades')" id="tab-btn-grades" class="main-tab-btn px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors bg-white text-blue-600 border-t-2 border-blue-600 shadow-sm">
+      Grades
+    </button>
+    <button onclick="switchMainTab('progress')" id="tab-btn-progress" class="main-tab-btn px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors text-slate-600 hover:bg-slate-200/60">
+      Progress Monitoring
+    </button>
+    <button onclick="switchMainTab('attendance')" id="tab-btn-attendance" class="main-tab-btn px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors text-slate-600 hover:bg-slate-200/60">
+      Attendance
+    </button>
+  </div>
+
+  <!-- ================= TAB CONTENT: GRADES ================= -->
+  <div id="main-tab-content-grades" class="main-tab-content block flex-1 flex flex-col overflow-hidden">
+    <!-- Unified Parent Container: Control Panel & Summary Sheet Combined -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-1 p-5 overflow-hidden">
+      
+      <!-- Single-Line Unified Control Row -->
+      <div class="shrink-0 mb-4">
+        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">Activity & Subject Control Panel</h3>
+        <div class="flex flex-wrap md:flex-nowrap items-end gap-2 w-full">
+          
+          <!-- Subject Selector -->
+          <div class="w-full md:w-[15%]">
+            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Subject</label>
+            <select id="subject-selector" onchange="handleSubjectChange()" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none h-[38px]">
+              <option value="">Loading subjects...</option>
+            </select>
+          </div>
+
+          <!-- Title of Activity -->
+          <div class="w-full md:w-[25%]">
+            <label class="block text-[10px] font-semibold text-slate-500 mb-1">Title of Activity</label>
+            <input 
+              type="text" 
+              id="act-title" 
+              placeholder="e.g., Quiz 1 - Flowcharting" 
+              class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none h-[38px]" 
+            />
+          </div>
+
+          <!-- Date -->
+          <div class="w-[48%] md:w-[145px]">
+            <label class="block text-[10px] font-semibold text-slate-500 mb-1">Date</label>
+            <input 
+              type="date" 
+              id="act-date" 
+              class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none h-[38px]" 
+            />
+          </div>
+
+          <!-- Type -->
+          <div class="w-[48%] md:w-[185px]">
+            <label class="block text-[10px] font-semibold text-slate-500 mb-1">Type</label>
+            <select id="act-type" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none h-[38px]">
+              <option value="WW">WW - Written Work</option>
+              <option value="PT">PT - Performance Task</option>
+              <option value="QA">QA - Quarterly Assessment</option>
+            </select>
+          </div>
+
+          <!-- Max Score -->
+          <div class="w-[30%] md:w-[80px]">
+            <label class="block text-[10px] font-semibold text-slate-500 mb-1">Max Score</label>
+            <input 
+              type="number" 
+              id="act-max" 
+              value="100" 
+              min="1" 
+              class="w-full border border-slate-300 rounded-lg p-2 text-xs text-center font-semibold focus:ring-2 focus:ring-blue-600 focus:outline-none h-[38px]" 
+            />
+          </div>
+
+          <!-- Action Buttons ("Add Activity" & "Refresh Summary") -->
+          <div class="w-[68%] md:flex-1 flex items-center gap-1.5">
+            <button onclick="addActivityColumn()" class="w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-2 rounded-lg text-xs transition-colors shadow-sm h-[38px] flex items-center justify-center gap-1.5 whitespace-nowrap" title="Add Activity">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+              <span>Add Activity</span>
+            </button>
+            <button onclick="calculateQuarterlySummary()" class="w-1/2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-2 rounded-lg text-xs transition-colors shadow-sm h-[38px] flex items-center justify-center gap-1.5 whitespace-nowrap" title="Refresh Summary">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+              <span>Refresh Summary</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Table Container with Internal Scroll -->
+      <div class="overflow-auto relative w-full border border-slate-200 rounded-lg shadow-sm flex-1">
+        <table class="min-w-full border-collapse">
+            <thead id="summary-thead" class="bg-white shadow-sm"></thead>
+            <tbody id="summary-list"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+<!-- ================= TAB CONTENT: PROGRESS MONITORING ================= -->
+<div id="main-tab-content-progress" class="main-tab-content hidden flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 p-5 overflow-hidden">
+  
+  <!-- Progress Monitoring Sub-tabs Navigation -->
+  <div class="flex border-b border-slate-200 mb-4 gap-4 shrink-0">
+    <button onclick="switchProgressSubTab('add-lc')" id="subtab-btn-add-lc" class="subtab-btn pb-2 text-xs font-bold uppercase tracking-wider text-blue-600 border-b-2 border-blue-600 transition-colors">
+      1. Add LC
+    </button>
+    <button onclick="switchProgressSubTab('add-report')" id="subtab-btn-add-report" class="subtab-btn pb-2 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-700 transition-colors border-b-2 border-transparent">
+      2. Add Progress Report
+    </button>
+    <button onclick="switchProgressSubTab('summary')" id="subtab-btn-summary" class="subtab-btn pb-2 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-700 transition-colors border-b-2 border-transparent">
+      3. Progress Monitoring Summary
+    </button>
+  </div>
+
+  <!-- ================= SUB-TAB 1: ADD LC ================= -->
+  <div id="subtab-content-add-lc" class="subtab-pane block flex-1 overflow-auto space-y-4 p-1">
+    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+      <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Configure Learning Competency & Criteria</h3>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Left Column: Subject Checkboxes Container -->
+        <div>
+          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Subjects (Select one or more)</label>
+          <div id="lc-subject-container" class="w-full border border-slate-300 rounded-lg p-3 text-xs bg-white max-h-40 overflow-y-auto space-y-2">
+            <span class="text-slate-400 italic">No subjects available</span>
+          </div>
+        </div>
+
+        <!-- Right Column: Topic and LC Stacked Fields -->
+        <div class="space-y-4">
+          <!-- Topic / Content Dropdown & Other Input -->
+          <div>
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Topic / Content</label>
+            <select id="lc-topic-select" onchange="toggleTopicOtherInput()" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none h-[38px]">
+              <option value="">Select Existing Topic</option>
+              <option value="__other__">+ Type New Topic</option>
+            </select>
+            <input 
+              type="text" 
+              id="lc-topic-other" 
+              placeholder="Type new topic name here..." 
+              class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none h-[38px] mt-2 hidden" 
+            />
+          </div>
+
+          <!-- Learning Competency Dropdown, Delete Button & Other Input -->
+          <div>
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Learning Competency (LC)</label>
+            <div class="flex items-center gap-2">
+              <select id="lc-select" onchange="toggleLcOtherInput()" class="flex-1 border border-slate-300 rounded-lg p-2 text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none h-[38px]">
+                <option value="">Select Learning Competency</option>
+                <option value="__other__">+ Type New LC</option>
+              </select>
+              <button type="button" onclick="deleteSelectedLc()" class="px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-lg text-xs font-bold transition-colors h-[38px]">
+                Delete LC
+              </button>
+            </div>
+            <input 
+              type="text" 
+              id="lc-other" 
+              placeholder="Type new learning competency here..." 
+              class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none h-[38px] mt-2 hidden" 
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Criteria Text Arrays (Comma-separated) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+        <div>
+          <label class="block text-[10px] font-bold text-emerald-700 uppercase mb-1">Above Standard (Comma-separated)</label>
+          <textarea id="lc-above" rows="3" placeholder="e.g., Expert execution, Creative layout" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-blue-700 uppercase mb-1">At Standard (Comma-separated)</label>
+          <textarea id="lc-at" rows="3" placeholder="e.g., Meets basic requirements" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-amber-700 uppercase mb-1">Below Standard (Comma-separated)</label>
+          <textarea id="lc-below" rows="3" placeholder="e.g., Missing core elements" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button onclick="saveLcTemplate()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-6 rounded-lg text-xs transition-colors shadow-sm">
+          Save & Initialize Progress Records
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SUB-TAB 2: ADD PROGRESS REPORT ================= -->
+  <div id="subtab-content-add-report" class="subtab-pane hidden flex-1 flex flex-col min-h-0 space-y-3 p-1">
+    
+    <!-- Filter Controls Bar -->
+    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-3 shrink-0">
+      <div>
+        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Subject</label>
+        <select id="report-subject" onchange="updateReportTopicsDropdown()" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none h-[38px]">
+          <option value="">Select Subject</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Topic</label>
+        <select id="report-topic" onchange="updateReportLcDropdown()" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none h-[38px]">
+          <option value="">Select Topic</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Learning Competency</label>
+        <select id="report-lc" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none h-[38px]">
+          <option value="">Select Learning Competency</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="flex justify-end shrink-0">
+      <button onclick="loadReportTable()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg text-xs transition-colors shadow-sm flex items-center gap-1.5">
+        <span>Load Table</span>
+      </button>
+    </div>
+
+    <!-- Learners Evaluation Table Container -->
+    <div class="flex-1 min-h-0 overflow-auto relative w-full border border-slate-200 rounded-lg shadow-sm bg-white">
+      <table class="min-w-full border-collapse bg-white text-xs">
+        <thead class="bg-slate-100 text-slate-700 uppercase font-bold text-[10px] sticky top-0 z-10 shadow-sm">
+          <tr>
+            <th class="p-3 border-r border-slate-200 text-left w-[240px] min-w-[240px]">Learner Name</th>
+            <th class="p-3 border-r border-slate-200 text-center bg-emerald-50 text-emerald-900 w-[280px]">Above Standard</th>
+            <th class="p-3 border-r border-slate-200 text-center bg-blue-50 text-blue-900 w-[280px]">At Standard</th>
+            <th class="p-3 border-r border-slate-200 text-center bg-amber-50 text-amber-900 w-[280px]">Below Standard</th>
+            <th class="p-3 text-center bg-slate-200 text-slate-900 w-[130px]">Result</th>
+          </tr>
+        </thead>
+        <tbody id="report-table-body">
+          <tr>
+            <td colspan="5" class="p-8 text-center text-slate-400">Select Subject, Topic, and LC, then click "Load Table".</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Save Action -->
+    <div class="flex justify-end pt-1 shrink-0">
+      <button onclick="saveProgressReportsTable()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-6 rounded-lg text-xs transition-colors shadow-sm">
+        Save Progress Report
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= SUB-TAB 3: PROGRESS MONITORING SUMMARY ================= -->
+  <div id="subtab-content-summary" class="subtab-pane hidden flex-1 flex flex-col min-h-0 space-y-3 p-1">
+    
+    <!-- Subject Filter Bar -->
+    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center gap-3 shrink-0">
+      <div class="w-full md:w-1/3">
+        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Subject</label>
+        <select id="summary-subject" onchange="loadProgressSummary()" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white focus:ring-2 focus:ring-blue-600 focus:outline-none h-[38px]">
+          <option value="">Select Subject</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Summary Matrix Table Container -->
+    <div class="flex-1 min-h-0 overflow-auto relative w-full border border-slate-200 rounded-lg shadow-sm bg-white">
+      <table id="summary-matrix-table" class="min-w-full border-collapse bg-white text-xs">
+        <thead id="summary-matrix-thead" class="bg-slate-100 text-slate-700 font-bold text-[10px] sticky top-0 z-20 shadow-sm">
+          <!-- Dynamically generated headers for Topics and LCs -->
+        </thead>
+        <tbody id="summary-matrix-tbody">
+          <tr>
+            <td class="p-8 text-center text-slate-400">Select a subject to view the progress monitoring summary matrix.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+</div>
+
+  <!-- ================= TAB CONTENT: ATTENDANCE ================= -->
+  <div id="main-tab-content-attendance" class="main-tab-content hidden flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 p-5 overflow-hidden">
+    <div class="flex-1 flex items-center justify-center text-slate-400 py-16 text-xs uppercase tracking-wider font-semibold">
+      Attendance Module (Coming Soon)
+    </div>
+  </div>
+
+</main>
+
+<!-- EDIT ACTIVITY MODAL -->
+<div id="edit-activity-modal" class="fixed inset-0 bg-slate-900/50 flex items-center justify-center hidden z-50">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 border border-slate-200">
+    <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+      <h3 class="text-base font-bold text-slate-800">Edit Activity Details</h3>
+      <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
+    </div>
+    
+    <form id="edit-activity-form" onsubmit="saveActivityEdit(event)" class="space-y-4">
+      <input type="hidden" id="edit-old-title" />
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Title of Activity</label>
+        <input type="text" id="edit-title" required class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Date of Activity</label>
+        <input type="date" id="edit-date" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Type of Activity</label>
+        <select id="edit-type" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+          <option value="WW">WW - Written Work</option>
+          <option value="PT">PT - Performance Task</option>
+          <option value="QA">QA - Quarterly Assessment</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Max Score</label>
+        <input type="number" id="edit-max" required min="1" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+        <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-200 transition-colors">
+          Cancel
+        </button>
+        <button type="submit" id="edit-save-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors">
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+  <script>
+    let isAppInitialized = false; // Initialization guard flag
+
+// ------------------------------------------------------------------
+// 1. SUPABASE CLIENT & STATE
+// ------------------------------------------------------------------
+const SUPABASE_URL = "https://lqaywlkdpyeeqtcnbofz.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxYXl3bGtkcHllZXF0Y25ib2Z6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxMDY4MzEsImV4cCI6MjEwMjY4MjgzMX0.Sp6ejWz7uX5de_XYOqK3jRxBTKXQAzUdnTPRv4pVhao";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let state = {
+  currentUser: null,
+  subjects: [],
+  selectedSubject: null,
+  learners: [],
+  scores: {},
+  savedGradesLocal: []
+};
+
+// Safe initialization after DOM loads
+document.addEventListener('DOMContentLoaded', () => {
+  const attDateInput = document.getElementById('att-date');
+  if (attDateInput) attDateInput.valueAsDate = new Date();
+  initAuthListener();
+});
+
+// ------------------------------------------------------------------
+// 2. SUPABASE AUTHENTICATION
+// ------------------------------------------------------------------
+async function handleLogin(event) {
+  if (event) event.preventDefault();
+  
+  const errorDiv = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  
+  const emailInput = document.getElementById('login-email');
+  const passwordInput = document.getElementById('login-password');
+
+  if (!emailInput || !passwordInput) return;
+
+  const email = emailInput.value.trim();
+  const password = passwordInput.value.trim();
+
+  if (!email || !password) {
+    if (errorDiv) {
+      errorDiv.innerText = "Please fill in both email and password.";
+      errorDiv.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (errorDiv) errorDiv.classList.add('hidden');
+  if (btn) {
+    btn.innerText = "Authenticating...";
+    btn.disabled = true;
+  }
+
+  try {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email: email,
+      password: password
+    });
+
+    if (error) throw error;
+  } catch (err) {
+    console.error("Login failed:", err.message);
+    if (errorDiv) {
+      errorDiv.innerText = err.message || "Failed to sign in. Please check your network and credentials.";
+      errorDiv.classList.remove('hidden');
+    }
+  } finally {
+    if (btn) {
+      btn.innerText = "Sign In";
+      btn.disabled = false;
+    }
+  }
+}
+
+async function handleLogout() {
+  localStorage.removeItem('er_selected_subject_id');
+  isAppInitialized = false;
+  await supabaseClient.auth.signOut();
+}
+
+function initAuthListener() {
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    const loginScreen = document.getElementById('login-screen');
+    const dashboardScreen = document.getElementById('dashboard-screen');
+    const userDisplay = document.getElementById('user-display');
+    const loginForm = document.getElementById('login-form');
+
+    if (session) {
+      state.currentUser = session.user;
+      if (userDisplay) userDisplay.innerText = `👤 ${session.user.email}`;
+      if (loginScreen) loginScreen.classList.add('hidden');
+      if (dashboardScreen) dashboardScreen.classList.remove('hidden');
+
+      // Guard flag prevents tab-focus/token-refresh events from re-initializing the app
+      if (!isAppInitialized) {
+        isAppInitialized = true;
+        initApp();
+      }
+    } else {
+      isAppInitialized = false;
+      state.currentUser = null;
+      if (dashboardScreen) dashboardScreen.classList.add('hidden');
+      if (loginScreen) loginScreen.classList.remove('hidden');
+      if (loginForm) loginForm.reset();
+    }
+  });
+}
+
+// ------------------------------------------------------------------
+// 3. DEPED TRANSMUTATION FORMULA
+// ------------------------------------------------------------------
+function calculateTransmuted(initialGrade) {
+  if (isNaN(initialGrade) || initialGrade <= 0) return 60;
+
+  const lookupTable = [
+    { min: 99.50, grade: 100 },
+    { min: 97.50, grade: 99 },
+    { min: 96.00, grade: 98 },
+    { min: 95.00, grade: 97 },
+    { min: 94.00, grade: 96 },
+    { min: 93.00, grade: 95 },
+    { min: 92.00, grade: 94 },
+    { min: 91.00, grade: 93 },
+    { min: 90.00, grade: 92 },
+    { min: 89.00, grade: 91 },
+    { min: 88.00, grade: 90 },
+    { min: 87.00, grade: 89 },
+    { min: 86.00, grade: 88 },
+    { min: 85.00, grade: 87 },
+    { min: 84.00, grade: 86 },
+    { min: 83.00, grade: 85 },
+    { min: 82.00, grade: 84 },
+    { min: 81.00, grade: 83 },
+    { min: 80.00, grade: 82 },
+    { min: 79.00, grade: 81 },
+    { min: 78.00, grade: 80 },
+    { min: 77.00, grade: 79 },
+    { min: 76.00, grade: 78 },
+    { min: 75.00, grade: 77 },
+    { min: 73.00, grade: 76 },
+    { min: 70.00, grade: 75 },
+    { min: 68.00, grade: 74 },
+    { min: 66.00, grade: 73 },
+    { min: 64.00, grade: 72 },
+    { min: 62.00, grade: 71 },
+    { min: 60.00, grade: 70 },
+    { min: 58.00, grade: 69 },
+    { min: 56.00, grade: 68 },
+    { min: 54.00, grade: 67 },
+    { min: 52.00, grade: 66 },
+    { min: 50.00, grade: 65 },
+    { min: 48.00, grade: 64 },
+    { min: 46.00, grade: 63 },
+    { min: 43.00, grade: 62 },
+    { min: 40.00, grade: 61 }
+  ];
+
+  for (const row of lookupTable) {
+    if (initialGrade >= row.min) return row.grade;
+  }
+
+  return 60;
+}
+
+// ------------------------------------------------------------------
+// 4. OFFLINE SYNC ENGINE (Strict Schema Alignment)
+// ------------------------------------------------------------------
+function updateOnlineStatus() {
+  const isOnline = navigator.onLine;
+  const statusBadge = document.getElementById('sync-status');
+  if (!statusBadge) return;
+
+  if (isOnline) {
+    statusBadge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500 text-white flex items-center gap-2";
+    statusBadge.innerHTML = `<span class="w-2 h-2 bg-white rounded-full animate-ping"></span> Online`;
+    syncOfflineData();
+  } else {
+    statusBadge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-amber-500 text-white flex items-center gap-2";
+    statusBadge.innerHTML = `Offline (Saving Locally)`;
+  }
+}
+
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+
+function getLocalOutbox() {
+  return JSON.parse(localStorage.getItem('er_outbox') || '[]');
+}
+
+function queueForSync(table, record) {
+  const outbox = getLocalOutbox();
+  outbox.push({ table, record, timestamp: Date.now() });
+  localStorage.setItem('er_outbox', JSON.stringify(outbox));
+  if (navigator.onLine) syncOfflineData();
+}
+
+async function syncOfflineData() {
+  const outbox = getLocalOutbox();
+  if (outbox.length === 0) return;
+
+  const validColumns = [
+    'uuid', 'created_at', 'progress_lc', 'learner_id', 
+    'subject', 'progress_at', 'progress_above', 
+    'progress_below', 'progress_result', 'progress_topic'
+  ];
+
+  const remaining = [];
+  for (const item of outbox) {
+    try {
+      // Validate that record keys only contain columns matching the exact schema
+      const recordKeys = Object.keys(item.record || {});
+      const hasInvalidCol = recordKeys.some(key => !validColumns.includes(key));
+      
+      if (hasInvalidCol) {
+        console.warn("Discarding outdated outbox item with invalid columns:", item);
+        continue;
+      }
+
+      const { error } = await supabaseClient.from(item.table).insert([item.record]);
+      if (error) throw error;
+    } catch (err) {
+      console.error(`Sync failed for table ${item.table}:`, err);
+      remaining.push(item);
+    }
+  }
+
+  localStorage.setItem('er_outbox', JSON.stringify(remaining));
+}
+
+// ------------------------------------------------------------------
+// 1. UPDATE ALL SUBJECT DROPDOWNS & ADD LC CHECKBOXES
+// ------------------------------------------------------------------
+function updateSubjectDropdowns() {
+  const dropdownOptionsHtml = state.subjects.length > 0 
+    ? '<option value="">Select Subject</option>' + state.subjects.map(s => `<option value="${s.id}">${s.subject_name || 'Unnamed Subject'}</option>`).join('')
+    : '<option value="">No subjects found</option>';
+
+  // Standard dropdowns for other tabs/filters
+  ['subject-selector', 'report-subject', 'summary-subject'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = dropdownOptionsHtml;
+  });
+
+  // Checkboxes container for Add LC tab
+  const lcSubjectContainer = document.getElementById('lc-subject-container');
+  if (lcSubjectContainer) {
+    if (state.subjects.length > 0) {
+      lcSubjectContainer.innerHTML = state.subjects.map(s => `
+        <label class="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
+          <input type="checkbox" name="lc_subject_checkbox" value="${s.id}" onchange="updateLcTopicsDropdown()" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+          <span class="text-slate-700 font-medium">${s.subject_name || 'Unnamed Subject'}</span>
+        </label>
+      `).join('');
+    } else {
+      lcSubjectContainer.innerHTML = '<span class="text-slate-400 italic">No subjects found</span>';
+    }
+  }
+}
+
+// ------------------------------------------------------------------
+// 2. APP INITIALIZATION
+// ------------------------------------------------------------------
+async function initApp() {
+  console.log("Initializing application...");
+  
+  try {
+    const selector = document.getElementById('subject-selector');
+    
+    if (selector) {
+      // 1. Fetch subjects and populate the grades subject selector
+      const { data: subjects, error } = await supabaseClient
+        .from('er_subjects')
+        .select(`
+          id,
+          subject_name,
+          subject_section,
+          er_sections (
+            section_name,
+            section_grade
+          )
+        `);
+
+      if (error) throw error;
+      state.subjects = subjects || [];
+
+      let html = '<option value="">Select Subject</option>';
+      (subjects || []).forEach(sub => {
+        const subName = sub.subject_name || 'Unnamed Subject';
+        // Display only the subject name without the parenthetical section info
+        html += `<option value="${sub.id}">${subName}</option>`;
+      });
+      selector.innerHTML = html;
+
+      // 2. Restore saved subject ID from localStorage if it exists
+      const savedSubId = localStorage.getItem('er_selected_subject_id');
+      if (savedSubId && subjects.some(s => s.id === savedSubId)) {
+        selector.value = savedSubId;
+      }
+
+      // 3. Execute handleSubjectChange() to load learners, grades, and summaries
+      if (typeof handleSubjectChange === 'function') {
+        await handleSubjectChange();
+      }
+    }
+
+    // Initialize other app components (Reports / LCs)
+    if (typeof populateLcDropdowns === 'function') {
+      await populateLcDropdowns();
+    }
+    if (typeof populateReportSubjectDropdown === 'function') {
+      await populateReportSubjectDropdown();
+    }
+
+    // Default main tab view
+    if (typeof switchMainTab === 'function') {
+      switchMainTab('grades');
+    }
+
+    console.log("Application successfully initialized.");
+  } catch (err) {
+    console.error("Error during application initialization:", err);
+  }
+}
+
+// Automatically fire when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  initApp();
+});
+
+
+// ------------------------------------------------------------------
+// POPULATE LC SUBJECT CHECKBOXES (Clean Subject Names)
+// ------------------------------------------------------------------
+// ------------------------------------------------------------------
+// POPULATE LC SUBJECT CHECKBOXES (Matches #lc-subject-container)
+// ------------------------------------------------------------------
+async function populateLcDropdowns() {
+  const container = document.getElementById('lc-subject-container');
+  if (!container) {
+    console.warn("Element with ID 'lc-subject-container' not found in HTML.");
+    return;
+  }
+
+  try {
+    let subjects = state.subjects;
+    if (!subjects || subjects.length === 0) {
+      const { data, error } = await supabaseClient
+        .from('er_subjects')
+        .select(`id, subject_name`);
+
+      if (error) throw error;
+      subjects = data || [];
+      state.subjects = subjects;
+    }
+
+    if (subjects.length === 0) {
+      container.innerHTML = '<div class="text-slate-400 text-xs italic p-2">No subjects available</div>';
+      return;
+    }
+
+    let html = '';
+    subjects.forEach(sub => {
+      const subName = sub.subject_name || 'Unnamed Subject';
+      // Clean display showing only the subject name without parenthetical text
+      html += `
+        <label class="flex items-center gap-2 text-xs cursor-pointer">
+          <input type="checkbox" name="lc_subject_checkbox" value="${sub.id}" onchange="updateLcTopicsDropdown()" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+          <span class="font-medium text-slate-700">${subName}</span>
+        </label>
+      `;
+    });
+
+    container.innerHTML = html;
+    console.log("LC subject checkboxes successfully populated.");
+  } catch (err) {
+    console.error("Error populating LC subject checkboxes:", err);
+    container.innerHTML = '<div class="text-red-400 text-xs italic p-2">Error loading subjects</div>';
+  }
+}
+
+// ------------------------------------------------------------------
+// POPULATE REPORT & SUMMARY SUBJECT DROPDOWNS (ROBUST VERSION)
+// ------------------------------------------------------------------
+async function populateReportSubjectDropdown() {
+  const reportSelect = document.getElementById('report-subject');
+  const summarySelect = document.getElementById('summary-subject');
+
+  if (!reportSelect && !summarySelect) {
+    console.warn("Warning: Neither 'report-subject' nor 'summary-subject' <select> elements were found in the HTML DOM.");
+    return;
+  }
+
+  try {
+    const { data: subjects, error } = await supabaseClient
+      .from('er_subjects')
+      .select(`
+        id,
+        subject_name,
+        subject_section,
+        er_sections (
+          section_name,
+          section_grade
+        )
+      `);
+
+    if (error) throw error;
+    state.subjects = subjects || [];
+
+    if (!subjects || subjects.length === 0) {
+      console.log("No subjects found in er_subjects table.");
+      return;
+    }
+
+    let html = '<option value="">Select Subject</option>';
+      (subjects || []).forEach(sub => {
+        const subName = sub.subject_name || 'Unnamed Subject';
+        // Display only the subject name without the parenthetical section info
+        html += `<option value="${sub.id}">${subName}</option>`;
+      });
+
+    if (reportSelect) reportSelect.innerHTML = html;
+    if (summarySelect) summarySelect.innerHTML = html;
+
+    console.log("Subject dropdowns populated successfully with", subjects.length, "subjects.");
+  } catch (err) {
+    console.error('Error populating report subject dropdowns:', err);
+  }
+}
+
+async function handleSubjectChange() {
+  const selector = document.getElementById('subject-selector');
+  if (!selector) return;
+
+  // 1. CAPTURE CURRENT ADD ACTIVITY FORM VALUES (Prevent clearing on subject switch)
+  const titleInput = document.getElementById('activity-title'); // Change ID to match your actual input ID
+  const dateInput = document.getElementById('activity-date');   // Change ID to match your actual input ID
+  const typeInput = document.getElementById('activity-type');   // Change ID to match your actual select/input ID
+  const maxScoreInput = document.getElementById('activity-max'); // Change ID to match your actual input ID
+
+  const savedFormValues = {
+    title: titleInput ? titleInput.value : '',
+    date: dateInput ? dateInput.value : '',
+    type: typeInput ? typeInput.value : '',
+    maxScore: maxScoreInput ? maxScoreInput.value : ''
+  };
+
+  const selectedId = selector.value;
+  state.selectedSubject = state.subjects.find(s => s.id === selectedId) || null;
+
+  if (selectedId) {
+    localStorage.setItem('er_selected_subject_id', selectedId);
+  }
+
+  // Load subject-specific learners & grades data
+  if (state.selectedSubject && state.selectedSubject.subject_section) {
+    const { data: learnersData } = await supabaseClient
+      .from('er_learners')
+      .select('*')
+      .eq('learner_section', state.selectedSubject.subject_section)
+      .order('learner_gender', { ascending: false })
+      .order('learner_name', { ascending: true });
+
+    state.learners = learnersData || [];
+
+    const { data: gradesData } = await supabaseClient
+      .from('er_grades')
+      .select('*')
+      .eq('grade_subject', state.selectedSubject.id);
+
+    state.savedGradesLocal = gradesData || [];
+  } else {
+    state.learners = [];
+    state.savedGradesLocal = [];
+  }
+
+  if (typeof calculateQuarterlySummary === 'function') {
+    calculateQuarterlySummary();
+  }
+
+  // 2. RESTORE FORM VALUES SO THEY ARE NOT LOST
+  if (titleInput && savedFormValues.title) titleInput.value = savedFormValues.title;
+  if (dateInput && savedFormValues.date) dateInput.value = savedFormValues.date;
+  if (typeInput && savedFormValues.type) typeInput.value = savedFormValues.type;
+  if (maxScoreInput && savedFormValues.maxScore) maxScoreInput.value = savedFormValues.maxScore;
+}
+
+function sortLearners(learners) {
+  return learners.sort((a, b) => {
+      const genderA = (a.learner_gender || '').toUpperCase();
+      const genderB = (b.learner_gender || '').toUpperCase();
+
+      // Primary Sort: Male ('M') before Female ('F')
+      if (genderA !== genderB) {
+      if (genderA === 'M' || genderA === 'MALE') return -1;
+      if (genderB === 'M' || genderB === 'MALE') return 1;
+      return genderA.localeCompare(genderB);
+      }
+
+      // Secondary Sort: Alphabetical by Name
+      return (a.learner_name || '').localeCompare(b.learner_name || '');
+  });
+}
+
+function initAttendanceDate() {
+  const dateInput = document.getElementById('att-date');
+  if (dateInput && !dateInput.value) {
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.value = today;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const dateInput = document.getElementById('att-date');
+  if (dateInput && !dateInput.value) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
+});
+
+function renderAttendance() {
+  const container = document.getElementById('attendance-list');
+  if (!container) return;
+
+  // If no subject is selected yet
+  if (!state.selectedSubject) {
+    container.innerHTML = `<tr><td colspan="2" class="p-6 text-center text-slate-400">Select a subject to load learners</td></tr>`;
+    return;
+  }
+
+  // If subject is selected but learner array is empty
+  if (!state.learners || state.learners.length === 0) {
+    container.innerHTML = `<tr><td colspan="2" class="p-6 text-center text-slate-400">No learners found for this subject's section.</td></tr>`;
+    return;
+  }
+
+  container.innerHTML = state.learners.map(l => {
+    const learnerName = l.learner_name || l.name || l.full_name || 'Unnamed Learner';
+
+    return `
+      <tr class="border-b border-slate-200 hover:bg-slate-50">
+        <td class="p-3 font-medium text-slate-700">${learnerName}</td>
+        <td class="p-3">
+          <select id="att-${l.id}" class="border border-slate-300 rounded p-1 text-xs bg-white focus:outline-none">
+            <option value="Present">Present</option>
+            <option value="Late">Late</option>
+            <option value="Absent">Absent</option>
+          </select>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  if (typeof calculateQuarterlySummary === 'function') {
+    calculateQuarterlySummary();
+  }
+
+  // >>> ADD THIS LINE TO RENDER ATTENDANCE WHEN LEARNERS ARE LOADED <<<
+  if (typeof renderAttendance === 'function') {
+    renderAttendance();
+  }
+
+  // 2. RESTORE FORM VALUES SO THEY ARE NOT LOST
+  if (titleInput && savedFormValues.title) titleInput.value = savedFormValues.title;
+  if (dateInput && savedFormValues.date) dateInput.value = savedFormValues.date;
+  if (typeInput && savedFormValues.type) typeInput.value = savedFormValues.type;
+  if (maxScoreInput && savedFormValues.maxScore) maxScoreInput.value = savedFormValues.maxScore;
+}
+
+function saveAttendance() {
+  if (!state.selectedSubject) return alert("Select a subject first.");
+  
+  const date = document.getElementById('att-date').value;
+  if (!date) return alert("Please select an attendance date.");
+
+  state.learners.forEach(l => {
+    const selectEl = document.getElementById(`att-${l.id}`);
+    if (!selectEl) return;
+    
+    const record = {
+      attendance_date: date,
+      attendance_learner: l.id,
+      attendance_subject: state.selectedSubject.id,
+      attendance_tag: selectEl.value
+    };
+    queueForSync('er_attendance', record);
+  });
+
+  alert('Attendance recorded & queued for sync!');
+}
+
+    // ------------------------------------------------------------------
+    // 6. ACTIVITY COLUMN MANAGEMENT & TRANSMUTATION SUMMARY
+    // ------------------------------------------------------------------
+    async function addActivityColumn() {
+  if (!state.selectedSubject) return alert('Please select a subject first.');
+
+  const titleInput = document.getElementById('act-title');
+  const dateInput = document.getElementById('act-date');
+  const typeInput = document.getElementById('act-type');
+  const maxInput = document.getElementById('act-max');
+
+  const title = titleInput ? titleInput.value.trim() : '';
+  const date = dateInput ? dateInput.value : '';
+  const type = typeInput ? typeInput.value : 'WW';
+  const maxScore = maxInput ? (parseFloat(maxInput.value) || 100) : 100;
+
+  if (!title) return alert('Please enter an activity title.');
+
+  // Check if activity already exists
+  const exists = state.savedGradesLocal.some(
+    g => g.grade_title === title && g.grade_subject === state.selectedSubject.id
+  );
+
+  if (exists) {
+    return alert(`An activity named "${title}" already exists for this subject.`);
+  }
+
+  if (state.learners.length === 0) {
+    return alert('No learners found in this section. Please add learners first.');
+  }
+
+  // 1. Generate default grade records (score = 0) for EVERY learner in section
+  const newGradeRecords = state.learners.map(learner => ({
+    grade_learner: learner.id,
+    grade_subject: state.selectedSubject.id,
+    grade_title: title,
+    grade_type: type,
+    grade_max_score: maxScore,
+    grade_date: date || null,
+    grade_score: 0 // Automatically default score to 0
+  }));
+
+  // 2. Add to local memory cache
+  state.savedGradesLocal.push(...newGradeRecords);
+
+  // 3. Batch insert into Supabase DB
+  try {
+    const { data, error } = await supabaseClient
+      .from('er_grades')
+      .insert(newGradeRecords)
+      .select();
+
+    if (error) {
+      console.error("DB Insert error, queueing for offline sync:", error);
+      newGradeRecords.forEach(rec => queueForSync('er_grades', rec));
+    } else if (data) {
+      // Update local array with DB assigned IDs
+      data.forEach(insertedRow => {
+        const localMatch = state.savedGradesLocal.find(
+          g => g.grade_learner === insertedRow.grade_learner && g.grade_title === insertedRow.grade_title
+        );
+        if (localMatch) localMatch.id = insertedRow.id;
+      });
+    }
+  } catch (err) {
+    console.error("Failed to send records to database:", err);
+    newGradeRecords.forEach(rec => queueForSync('er_grades', rec));
+  }
+
+  // 4. Reset title input and render summary sheet with 0 values
+  if (titleInput) titleInput.value = '';
+  calculateQuarterlySummary();
+}
+
+// Toggle activity inclusion state and recalculate summary
+function toggleActivityInclusion(btnEl) {
+  const currentStatus = btnEl.getAttribute('data-included') === 'true';
+  btnEl.setAttribute('data-included', !currentStatus);
+  calculateQuarterlySummary();
+}
+
+function calculateQuarterlySummary() {
+  const theadContainer = document.getElementById('summary-thead');
+  const tbodyContainer = document.getElementById('summary-list');
+
+  if (!theadContainer || !tbodyContainer) return;
+
+  if (!state.selectedSubject || state.learners.length === 0) {
+    theadContainer.innerHTML = '';
+    tbodyContainer.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-400">Select a subject to view summary</td></tr>`;
+    return;
+  }
+
+  // Preserve existing button inclusion states before re-rendering
+  const excludedTitles = new Set();
+  document.querySelectorAll('button.activity-toggle-btn').forEach(btn => {
+    if (btn.getAttribute('data-included') === 'false') {
+      excludedTitles.add(btn.getAttribute('data-activity-title'));
+    }
+  });
+
+  // Strict number parser to completely prevent NaN
+  const safeNum = (val) => {
+    const num = parseFloat(val);
+    return isNaN(num) ? 0 : num;
+  };
+
+  // 1. CALCULATE DYNAMIC WIDTH FOR LEARNER NAME COLUMN
+  let maxNameLength = 12;
+  state.learners.forEach(l => {
+    if (l.learner_name && l.learner_name.length > maxNameLength) {
+      maxNameLength = l.learner_name.length;
+    }
+  });
+  const dynamicWidth = Math.max(240, Math.ceil(maxNameLength * 8.5) + 40);
+  const nameColStyle = `width: ${dynamicWidth}px; min-width: ${dynamicWidth}px; max-width: ${dynamicWidth}px;`;
+
+  // Standard fixed width for columns
+  const actColStyle = 'width: 100px; min-width: 100px; max-width: 100px;';
+  const totalColStyle = 'width: 95px; min-width: 95px; max-width: 95px;';
+  const pctColStyle = 'width: 95px; min-width: 95px; max-width: 95px;';
+
+  // 2. EXTRACT & SORT UNIQUE ACTIVITIES PER TYPE BY DATE (Ascending)
+  const getUniqueActivities = (typePredicate) => {
+    const map = new Map();
+    state.savedGradesLocal.forEach(g => {
+      if (typePredicate(g.grade_type) && g.grade_title) {
+        if (!map.has(g.grade_title)) {
+          map.set(g.grade_title, { 
+            title: g.grade_title, 
+            maxScore: safeNum(g.grade_max_score) || 100, 
+            type: g.grade_type,
+            date: g.grade_date || ''
+          });
+        }
+      }
+    });
+    
+    // Convert to array and sort by date (earliest to latest)
+    return Array.from(map.values()).sort((a, b) => {
+      const dateA = a.date ? new Date(a.date) : new Date(0);
+      const dateB = b.date ? new Date(b.date) : new Date(0);
+      return dateA - dateB;
+    });
+  };
+
+  const wwActs = getUniqueActivities(t => t === 'WW');
+  const ptActs = getUniqueActivities(t => t === 'PT');
+  const qaActs = getUniqueActivities(t => t && t.startsWith('QA'));
+
+  // 3. APPLY TABLE STYLES & DYNAMIC MIN-WIDTH
+  const tableEl = theadContainer.closest('table');
+  const tableWrapper = tableEl ? tableEl.parentElement : null;
+
+  if (tableEl) {
+    tableEl.style.tableLayout = 'fixed';
+    
+    const totalColsWidth = dynamicWidth + 
+      ((wwActs.length + ptActs.length + qaActs.length) * 100) + 
+      (3 * 195) + 
+      290;
+
+    tableEl.style.minWidth = `${totalColsWidth}px`;
+  }
+
+  if (tableWrapper) {
+    tableWrapper.classList.add('overflow-x-auto', 'overflow-y-auto', 'relative');
+    tableWrapper.style.maxHeight = '70vh';
+  }
+
+  const wwPercent = safeNum(state.selectedSubject.subject_ww_percent) || 30;
+  const ptPercent = safeNum(state.selectedSubject.subject_pt_percent) || 50;
+  const qaPercent = safeNum(state.selectedSubject.subject_qa_percent) || 20;
+
+  const wwWeight = wwPercent / 100;
+  const ptWeight = ptPercent / 100;
+  const qaWeight = qaPercent / 100;
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return isNaN(d) ? dateStr : d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
+  };
+
+  // 4. BUILD TABLE HEADERS (4 Stacked Sticky Rows with Rigid Heights & Cumulative Offsets)
+  let headRow1 = `
+    <tr class="text-center font-bold text-xs uppercase tracking-wider text-white h-[38px]">
+      <th rowspan="4" style="${nameColStyle}" class="p-3 bg-slate-800 border-r border-slate-700 text-left whitespace-nowrap sticky left-0 top-0 z-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.2)] align-middle">
+        Learner Name
+      </th>
+      <th colspan="${wwActs.length + 2}" class="p-2 bg-emerald-600 border-r border-emerald-500 sticky top-0 z-40">
+        Written Work (${wwPercent}%)
+      </th>
+      <th colspan="${ptActs.length + 2}" class="p-2 bg-blue-600 border-r border-blue-500 sticky top-0 z-40">
+        Performance Tasks (${ptPercent}%)
+      </th>
+      <th colspan="${qaActs.length + 2}" class="p-2 bg-amber-600 border-r border-amber-500 sticky top-0 z-40">
+        Quarterly Assessment (${qaPercent}%)
+      </th>
+      <th colspan="3" class="p-2 bg-slate-700 sticky top-0 z-40">Final Grade</th>
+    </tr>
+  `;
+
+  let headRow2 = `<tr class="bg-slate-100/80 text-xs font-semibold text-slate-700 border-b border-slate-200 h-[46px]">`;
+  let headRow3 = `<tr class="bg-slate-50 text-[10px] text-slate-500 border-b border-slate-200 h-[28px]">`;
+  let headRow4 = `<tr class="bg-slate-100/80 text-[10px] font-medium border-b border-slate-200 h-[28px]">`;
+
+  const addActivityHeaderColumns = (acts, colorClass) => {
+    acts.forEach(act => {
+      const safeTitle = act.title.replace(/'/g, "\\'");
+      const isIncluded = !excludedTitles.has(act.title);
+      const btnBgClass = isIncluded 
+        ? `bg-${colorClass}-50/60 hover:bg-${colorClass}-100 text-${colorClass}-700` 
+        : 'bg-slate-200 text-slate-400 line-through';
+      
+      headRow2 += `
+        <th style="${actColStyle}" class="relative p-2 border-r border-slate-200 bg-${colorClass}-50/50 text-center align-top overflow-hidden sticky top-[38px] z-40 h-[46px]">
+          <div class="absolute inset-0 bg-white -z-10"></div>
+          <div class="relative z-10 flex items-center justify-between gap-1 h-full">
+            <span class="font-bold text-slate-800 text-left truncate flex-grow leading-tight" title="${act.title}">${act.title}</span>
+            <div class="flex items-center gap-0.5 opacity-80 hover:opacity-100 flex-shrink-0">
+              <button onclick="editActivityModal('${safeTitle}')" class="text-slate-400 hover:text-blue-600 transition-colors" title="Edit Activity">✏️</button>
+              <button onclick="deleteActivityColumn('${safeTitle}')" class="text-slate-400 hover:text-red-600 transition-colors" title="Delete Activity">🗑️</button>
+            </div>
+          </div>
+        </th>`;
+
+      headRow3 += `
+        <th style="${actColStyle}" class="relative p-1.5 border-r border-slate-200 text-center bg-${colorClass}-50/30 overflow-hidden sticky top-[84px] z-40 h-[28px]">
+          <div class="absolute inset-0 bg-white -z-10"></div>
+          <span class="relative z-10">${formatDate(act.date) || '-'}</span>
+        </th>`;
+
+      headRow4 += `
+        <th style="${actColStyle}" class="relative p-0 border-r border-slate-200 text-center overflow-hidden sticky top-[112px] z-40 h-[28px]">
+          <div class="absolute inset-0 bg-white -z-10"></div>
+          <button 
+            type="button"
+            data-activity-title="${act.title.replace(/"/g, '&quot;')}"
+            data-included="${isIncluded}"
+            onclick="toggleActivityInclusion(this)"
+            class="activity-toggle-btn relative z-10 w-full h-full px-1 text-[10px] font-semibold flex items-center justify-center transition-colors ${btnBgClass}"
+            title="${isIncluded ? 'Included in computation. Click to exclude.' : 'Excluded from computation. Click to include.'}"
+          >
+            <span>(${act.maxScore} pts)</span>
+          </button>
+        </th>`;
+    });
+  };
+
+  // Written Work
+  addActivityHeaderColumns(wwActs, 'emerald');
+  headRow2 += `<th rowspan="3" style="${totalColStyle}" class="p-2 border-r border-emerald-200 bg-emerald-50 text-emerald-900 font-bold text-center align-middle sticky top-[38px] z-40">WW Total</th>`;
+  headRow2 += `<th rowspan="3" style="${pctColStyle}" class="p-2 border-r-2 border-emerald-300 bg-emerald-100 text-emerald-950 font-bold text-center align-middle sticky top-[38px] z-40">WW %</th>`;
+
+  // Performance Tasks
+  addActivityHeaderColumns(ptActs, 'blue');
+  headRow2 += `<th rowspan="3" style="${totalColStyle}" class="p-2 border-r border-blue-200 bg-blue-50 text-blue-900 font-bold text-center align-middle sticky top-[38px] z-40">PT Total</th>`;
+  headRow2 += `<th rowspan="3" style="${pctColStyle}" class="p-2 border-r-2 border-blue-300 bg-blue-100 text-blue-950 font-bold text-center align-middle sticky top-[38px] z-40">PT %</th>`;
+
+  // Quarterly Assessment
+  addActivityHeaderColumns(qaActs, 'amber');
+  headRow2 += `<th rowspan="3" style="${totalColStyle}" class="p-2 border-r border-amber-200 bg-amber-50 text-amber-900 font-bold text-center align-middle sticky top-[38px] z-40">QA Total</th>`;
+  headRow2 += `<th rowspan="3" style="${pctColStyle}" class="p-2 border-r-2 border-amber-300 bg-amber-100 text-amber-950 font-bold text-center align-middle sticky top-[38px] z-40">QA %</th>`;
+
+  // Final Grade columns
+  headRow2 += `
+    <th rowspan="3" style="width: 90px; min-width: 90px; max-width: 90px;" class="p-2 border-r border-slate-200 text-center align-middle sticky top-[38px] z-40 bg-slate-100">Initial %</th>
+    <th rowspan="3" style="width: 100px; min-width: 100px; max-width: 100px;" class="p-2 border-r border-slate-200 text-center font-bold text-blue-900 text-base align-middle sticky top-[38px] z-40 bg-slate-100">Transmuted</th>
+    <th rowspan="3" style="width: 100px; min-width: 100px; max-width: 100px;" class="p-2 text-center align-middle sticky top-[38px] z-40 bg-slate-100">Remarks</th>
+  </tr>`;
+
+  headRow3 += `</tr>`;
+  headRow4 += `</tr>`;
+
+  theadContainer.innerHTML = headRow1 + headRow2 + headRow3 + headRow4;
+
+  // 5. BUILD TABLE BODY (Student Rows)
+  const learnersHTML = state.learners.map(l => {
+    const studentGrades = state.savedGradesLocal.filter(g => g.grade_learner === l.id);
+
+    const calcCategoryData = (activities) => {
+      if (activities.length === 0) return { cellsHTML: '', totalEarned: 0, totalMax: 0, percentage: 0 };
+      let totalEarned = 0;
+      let totalMax = 0;
+      let cellsHTML = '';
+
+      activities.forEach(act => {
+        const entry = studentGrades.find(g => g.grade_title === act.title);
+        
+        const scoreVal = entry && entry.grade_score !== '' && entry.grade_score !== undefined && entry.grade_score !== null 
+          ? safeNum(entry.grade_score) 
+          : 0;
+        const maxScoreVal = safeNum(act.maxScore) || 100;
+
+        const isIncluded = !excludedTitles.has(act.title);
+
+        if (isIncluded) {
+          totalEarned += scoreVal;
+          totalMax += maxScoreVal;
+        }
+
+        const safeTitle = act.title.replace(/'/g, "\\'");
+        
+        const hasScore = entry && entry.grade_score !== '' && entry.grade_score !== null && entry.grade_score !== undefined;
+        const isBelowPassing = isIncluded && hasScore && (safeNum(entry.grade_score) < (maxScoreVal * 0.70));
+
+        const cellBgClass = !isIncluded ? 'bg-slate-100 opacity-50' : (isBelowPassing ? 'bg-red-100' : 'bg-white');
+        const inputTextColor = isBelowPassing ? 'text-red-900 font-bold' : 'text-slate-800';
+
+        cellsHTML += `
+          <td style="${actColStyle}" class="relative p-0 border-r border-slate-200 h-10 overflow-hidden ${cellBgClass}">
+            <input 
+              type="number" 
+              step="any" 
+              value="${hasScore ? entry.grade_score : ''}" 
+              placeholder="-"
+              min="0"
+              data-type="${act.type}"
+              data-max="${maxScoreVal}"
+              onkeydown="handleScoreTab(event, this)"
+              oninput="updateInlineGrade('${l.id}', '${safeTitle}', '${act.type}', ${maxScoreVal}, '${act.date}', this)"
+              class="grade-input absolute inset-0 w-full h-full text-center border-0 outline-none bg-transparent text-xs ${inputTextColor} focus:bg-blue-50 focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-colors" 
+            />
+          </td>`;
+      });
+
+      const percentage = totalMax > 0 ? (totalEarned / totalMax) * 100 : 0;
+      return { cellsHTML, totalEarned, totalMax, percentage };
+    };
+
+    const wwRes = calcCategoryData(wwActs);
+    const ptRes = calcCategoryData(ptActs);
+    const qaRes = calcCategoryData(qaActs);
+
+    const initialGrade = (wwRes.percentage * wwWeight) + (ptRes.percentage * ptWeight) + (qaRes.percentage * qaWeight);
+    const finalTransmuted = typeof calculateTransmuted === 'function' ? calculateTransmuted(initialGrade) : Math.round(initialGrade);
+    const isPassed = finalTransmuted >= 75;
+
+    return `
+      <tr data-learner-id="${l.id}" class="group hover:bg-slate-50 border-b border-slate-200 text-slate-700">
+        <td style="${nameColStyle}" class="p-3 font-medium text-slate-800 border-r border-slate-200 whitespace-nowrap sticky left-0 z-30 bg-white group-hover:bg-slate-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] truncate" title="${l.learner_name}">
+          ${l.learner_name}
+        </td>
+
+        ${wwRes.cellsHTML}
+        <td style="${totalColStyle}" class="cell-ww-total p-2 text-center font-semibold bg-emerald-50/50 text-emerald-900 border-r border-emerald-200 text-xs">
+          ${wwRes.totalEarned} / ${wwRes.totalMax}
+        </td>
+        <td style="${pctColStyle}" class="cell-ww-pct p-2 text-center font-bold bg-emerald-100 text-emerald-900 border-r-2 border-emerald-300 text-xs">
+          ${wwRes.percentage.toFixed(1)}%
+        </td>
+
+        ${ptRes.cellsHTML}
+        <td style="${totalColStyle}" class="cell-pt-total p-2 text-center font-semibold bg-blue-50/50 text-blue-900 border-r border-blue-200 text-xs">
+          ${ptRes.totalEarned} / ${ptRes.totalMax}
+        </td>
+        <td style="${pctColStyle}" class="cell-pct p-2 text-center font-bold bg-blue-100 text-blue-900 border-r-2 border-blue-300 text-xs">
+          ${ptRes.percentage.toFixed(1)}%
+        </td>
+
+        ${qaRes.cellsHTML}
+        <td style="${totalColStyle}" class="cell-qa-total p-2 text-center font-semibold bg-amber-50/50 text-amber-900 border-r border-amber-200 text-xs">
+          ${qaRes.totalEarned} / ${qaRes.totalMax}
+        </td>
+        <td style="${pctColStyle}" class="cell-qa-pct p-2 text-center font-bold bg-amber-100 text-amber-900 border-r-2 border-amber-300 text-xs">
+          ${qaRes.percentage.toFixed(1)}%
+        </td>
+
+        <td style="width: 90px; min-width: 90px; max-width: 90px;" class="cell-initial-grade p-2 text-center font-semibold text-slate-600 border-r border-slate-200">
+          ${initialGrade.toFixed(2)}%
+        </td>
+        <td style="width: 100px; min-width: 100px; max-width: 100px;" class="cell-transmuted-grade p-2 text-center font-extrabold text-blue-900 text-base border-r border-slate-200">
+          ${finalTransmuted}
+        </td>
+
+        <td style="width: 100px; min-width: 100px; max-width: 100px;" class="cell-remarks p-2 text-center">
+          <span class="inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
+            isPassed 
+              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+              : 'bg-red-100 text-red-800 border border-red-300'
+          }">
+            ${isPassed ? 'PASSED' : 'FAILED'}
+          </span>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // 6. BUILD SUMMARY ROW (Below Passing Count & >60% Threshold X Check)
+  const generateActivitySummaryCells = (acts) => {
+    let html = '';
+    const totalLearners = state.learners.length;
+
+    acts.forEach(act => {
+      const isIncluded = !excludedTitles.has(act.title);
+      if (!isIncluded) {
+        html += `<td style="${actColStyle}" class="p-2 text-center border-r border-slate-200 text-slate-400 bg-slate-100">-</td>`;
+        return;
+      }
+
+      let belowPassingCount = 0;
+      const passingThreshold = act.maxScore * 0.70;
+
+      state.learners.forEach(l => {
+        const entry = state.savedGradesLocal.find(g => g.grade_learner === l.id && g.grade_title === act.title);
+        const scoreVal = entry && entry.grade_score !== '' && entry.grade_score !== undefined && entry.grade_score !== null 
+          ? safeNum(entry.grade_score) 
+          : 0;
+
+        if (scoreVal < passingThreshold) {
+          belowPassingCount++;
+        }
+      });
+
+      const isExceeded = totalLearners > 0 && (belowPassingCount > totalLearners * 0.60);
+
+      let cellClass = 'text-slate-700';
+      if (isExceeded) {
+        cellClass = 'bg-red-200 text-red-900 font-extrabold';
+      } else if (belowPassingCount > 0) {
+        cellClass = 'bg-red-50 text-red-700 font-semibold';
+      }
+
+      html += `
+        <td style="${actColStyle}" class="p-2 text-center border-r border-slate-200 ${cellClass}">
+          ${isExceeded ? `${belowPassingCount} (X)` : belowPassingCount}
+        </td>
+      `;
+    });
+    return html;
+  };
+
+  const summaryRowHTML = `
+    <tr class="bg-slate-100 font-semibold text-xs border-t-2 border-slate-300 text-slate-800">
+      <td style="${nameColStyle}" class="p-3 border-r border-slate-200 sticky left-0 z-30 bg-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+        Below Passing Count (&lt;70%)
+      </td>
+      ${generateActivitySummaryCells(wwActs)}
+      <td style="${totalColStyle}" class="p-2 text-center border-r border-slate-200">-</td>
+      <td style="${pctColStyle}" class="p-2 text-center border-r-2 border-slate-300">-</td>
+      
+      ${generateActivitySummaryCells(ptActs)}
+      <td style="${totalColStyle}" class="p-2 text-center border-r border-slate-200">-</td>
+      <td style="${pctColStyle}" class="p-2 text-center border-r-2 border-slate-300">-</td>
+      
+      ${generateActivitySummaryCells(qaActs)}
+      <td style="${totalColStyle}" class="p-2 text-center border-r border-slate-200">-</td>
+      <td style="${pctColStyle}" class="p-2 text-center border-r-2 border-slate-300">-</td>
+
+      <td style="width: 90px; min-width: 90px; max-width: 90px;" class="p-2 text-center border-r border-slate-200">-</td>
+      <td style="width: 100px; min-width: 100px; max-width: 100px;" class="p-2 text-center border-r border-slate-200">-</td>
+      <td style="width: 100px; min-width: 100px; max-width: 100px;" class="p-2 text-center">-</td>
+    </tr>
+  `;
+
+  tbodyContainer.innerHTML = learnersHTML + summaryRowHTML;
+}
+
+// ------------------------------------------------------------------
+// REAL-TIME INLINE GRADE UPDATER
+// ------------------------------------------------------------------
+async function updateInlineGrade(learnerId, title, type, maxScore, dateStr, inputEl) {
+  if (!state.selectedSubject) return;
+
+  const rawValue = inputEl.value;
+  // Allow empty input without forcing 0 immediately during typing, 
+  // but treat empty as null/0 for calculation purposes.
+  const scoreVal = rawValue === '' ? null : parseFloat(rawValue);
+
+  // 1. Find or create the grade record in local memory state
+  let gradeRecord = state.savedGradesLocal.find(
+    g => g.grade_learner === learnerId && g.grade_title === title
+  );
+
+  if (gradeRecord) {
+    gradeRecord.grade_score = scoreVal;
+  } else {
+    gradeRecord = {
+      grade_learner: learnerId,
+      grade_subject: state.selectedSubject.id,
+      grade_title: title,
+      grade_type: type,
+      grade_max_score: maxScore,
+      grade_date: dateStr || null,
+      grade_score: scoreVal
+    };
+    state.savedGradesLocal.push(gradeRecord);
+  }
+
+  // 2. Immediately recalculate and update only this student's DOM row
+  const rowEl = inputEl.closest('tr');
+  if (rowEl) {
+    updateSingleRowSummary(rowEl, learnerId);
+  }
+
+  // 3. Queue the change for background database sync / upsert
+  const syncPayload = {
+    grade_learner: learnerId,
+    grade_subject: state.selectedSubject.id,
+    grade_title: title,
+    grade_type: type,
+    grade_max_score: maxScore,
+    grade_date: dateStr || null,
+    grade_score: scoreVal !== null ? scoreVal : 0
+  };
+
+  queueForSync('er_grades', syncPayload);
+}
+
+    // ------------------------------------------------------------------
+    // 6. ACTIVITY COLUMN MANAGEMENT & EDIT / DELETE LOGIC
+    // ------------------------------------------------------------------
+
+    function editActivityModal(oldTitle) {
+    if (!state.selectedSubject) return;
+
+    const current = state.savedGradesLocal.find(
+        g => g.grade_title === oldTitle && g.grade_subject === state.selectedSubject.id
+    );
+    if (!current) return;
+
+    // Populate form fields
+    document.getElementById('edit-old-title').value = oldTitle;
+    document.getElementById('edit-title').value = current.grade_title || '';
+    document.getElementById('edit-date').value = current.grade_date || '';
+    
+    // Normalize type selection (WW, PT, QA)
+    let typeVal = 'WW';
+    if (current.grade_type) {
+        if (current.grade_type.startsWith('QA')) typeVal = 'QA';
+        else if (current.grade_type.startsWith('PT')) typeVal = 'PT';
+        else typeVal = 'WW';
+    }
+    document.getElementById('edit-type').value = typeVal;
+    document.getElementById('edit-max').value = current.grade_max_score || 100;
+
+    // Show Modal
+    const modal = document.getElementById('edit-activity-modal');
+    if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+    const modal = document.getElementById('edit-activity-modal');
+    if (modal) modal.classList.add('hidden');
+    }
+
+    async function saveActivityEdit(event) {
+    event.preventDefault();
+    if (!state.selectedSubject) return;
+
+    const oldTitle = document.getElementById('edit-old-title').value;
+    const newTitle = document.getElementById('edit-title').value.trim();
+    const newDate = document.getElementById('edit-date').value;
+    const newType = document.getElementById('edit-type').value;
+    const newMax = parseFloat(document.getElementById('edit-max').value) || 100;
+
+    const saveBtn = document.getElementById('edit-save-btn');
+    if (saveBtn) {
+        saveBtn.innerText = "Saving...";
+        saveBtn.disabled = true;
+    }
+
+    // 1. Update local state
+    state.savedGradesLocal.forEach(g => {
+        if (g.grade_title === oldTitle && g.grade_subject === state.selectedSubject.id) {
+        g.grade_title = newTitle;
+        g.grade_date = newDate;
+        g.grade_type = newType;
+        g.grade_max_score = newMax;
+        }
+    });
+
+    // 2. Sync changes with Supabase
+    try {
+        const { error } = await supabaseClient
+        .from('er_grades')
+        .update({
+            grade_title: newTitle,
+            grade_date: newDate || null,
+            grade_type: newType,
+            grade_max_score: newMax
+        })
+        .eq('grade_subject', state.selectedSubject.id)
+        .eq('grade_title', oldTitle);
+
+        if (error) throw error;
+    } catch (err) {
+        console.error("Error updating activity:", err);
+        alert("Failed to sync activity updates with database: " + err.message);
+    } finally {
+        if (saveBtn) {
+        saveBtn.innerText = "Save Changes";
+        saveBtn.disabled = false;
+        }
+        closeEditModal();
+        calculateQuarterlySummary();
+    }
+    }
+
+    // DELETE ACTIVITY COLUMN & DB SYNC
+    async function deleteActivityColumn(titleToDelete) {
+      if (!state.selectedSubject) return;
+
+      const confirmDelete = confirm(`Are you sure you want to delete "${titleToDelete}" and all associated learner scores?`);
+      if (!confirmDelete) return;
+
+      // Filter out locally
+      state.savedGradesLocal = state.savedGradesLocal.filter(
+        g => !(g.grade_title === titleToDelete && g.grade_subject === state.selectedSubject.id)
+      );
+
+      // Remove from Supabase DB
+      const { error } = await supabaseClient
+        .from('er_grades')
+        .delete()
+        .eq('grade_subject', state.selectedSubject.id)
+        .eq('grade_title', titleToDelete);
+
+      if (error) {
+        console.error("Error deleting activity from DB:", error);
+        alert("Failed to delete activity from Supabase: " + error.message);
+      } else {
+        alert(`Deleted activity "${titleToDelete}".`);
+      }
+
+      calculateQuarterlySummary();
+    }
+
+// ------------------------------------------------------------------
+// 4. OFFLINE SYNC ENGINE (Strict Schema Alignment)
+// ------------------------------------------------------------------
+function updateOnlineStatus() {
+  const isOnline = navigator.onLine;
+  const statusBadge = document.getElementById('sync-status');
+  if (!statusBadge) return;
+
+  if (isOnline) {
+    statusBadge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500 text-white flex items-center gap-2";
+    statusBadge.innerHTML = `<span class="w-2 h-2 bg-white rounded-full animate-ping"></span> Online`;
+    syncOfflineData();
+  } else {
+    statusBadge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-amber-500 text-white flex items-center gap-2";
+    statusBadge.innerHTML = `Offline (Saving Locally)`;
+  }
+}
+
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+
+function getLocalOutbox() {
+  return JSON.parse(localStorage.getItem('er_outbox') || '[]');
+}
+
+function queueForSync(table, record) {
+  const outbox = getLocalOutbox();
+  outbox.push({ table, record, timestamp: Date.now() });
+  localStorage.setItem('er_outbox', JSON.stringify(outbox));
+  if (navigator.onLine) syncOfflineData();
+}
+
+async function syncOfflineData() {
+  const outbox = getLocalOutbox();
+  if (outbox.length === 0) return;
+
+  const validColumns = [
+    'uuid', 'created_at', 'progress_lc', 'progress_learner', 
+    'subject', 'progress_at', 'progress_above', 
+    'progress_below', 'progress_result', 'progress_topic'
+  ];
+
+  const remaining = [];
+  for (const item of outbox) {
+    try {
+      const recordKeys = Object.keys(item.record || {});
+      const hasInvalidCol = recordKeys.some(key => !validColumns.includes(key));
+      
+      if (hasInvalidCol) {
+        console.warn("Discarding outdated outbox item with invalid columns:", item);
+        continue;
+      }
+
+      const { error } = await supabaseClient.from(item.table).insert([item.record]);
+      if (error) throw error;
+    } catch (err) {
+      console.error(`Sync failed for table ${item.table}:`, err);
+      remaining.push(item);
+    }
+  }
+
+  localStorage.setItem('er_outbox', JSON.stringify(remaining));
+}
+    
+// Helper function to recalculate and update only a single student's row
+function updateSingleRowSummary(rowEl, learnerId) {
+  if (!state.selectedSubject) return;
+
+  const safeNum = (val) => {
+    const num = parseFloat(val);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const getUniqueActivities = (typePredicate) => {
+    const map = new Map();
+    state.savedGradesLocal.forEach(g => {
+      if (typePredicate(g.grade_type) && g.grade_title) {
+        if (!map.has(g.grade_title)) {
+          map.set(g.grade_title, { 
+            title: g.grade_title, 
+            maxScore: safeNum(g.grade_max_score) || 100, 
+            type: g.grade_type,
+            date: g.grade_date || ''
+          });
+        }
+      }
+    });
+    return Array.from(map.values());
+  };
+
+  const wwActs = getUniqueActivities(t => t === 'WW');
+  const ptActs = getUniqueActivities(t => t === 'PT');
+  const qaActs = getUniqueActivities(t => t && t.startsWith('QA'));
+
+  const wwPercent = safeNum(state.selectedSubject.subject_ww_percent) || 30;
+  const ptPercent = safeNum(state.selectedSubject.subject_pt_percent) || 50;
+  const qaPercent = safeNum(state.selectedSubject.subject_qa_percent) || 20;
+
+  const wwWeight = wwPercent / 100;
+  const ptWeight = ptPercent / 100;
+  const qaWeight = qaPercent / 100;
+
+  const studentGrades = state.savedGradesLocal.filter(g => g.grade_learner === learnerId);
+
+  const calcCategoryData = (activities) => {
+    if (activities.length === 0) return { totalEarned: 0, totalMax: 0, percentage: 0 };
+    let totalEarned = 0;
+    let totalMax = 0;
+
+    activities.forEach(act => {
+      const entry = studentGrades.find(g => g.grade_title === act.title);
+      const scoreVal = entry && entry.grade_score !== '' && entry.grade_score !== undefined && entry.grade_score !== null 
+        ? safeNum(entry.grade_score) 
+        : 0;
+      totalEarned += scoreVal;
+      totalMax += safeNum(act.maxScore) || 100;
+    });
+
+    const percentage = totalMax > 0 ? (totalEarned / totalMax) * 100 : 0;
+    return { totalEarned, totalMax, percentage };
+  };
+
+  const wwRes = calcCategoryData(wwActs);
+  const ptRes = calcCategoryData(ptActs);
+  const qaRes = calcCategoryData(qaActs);
+
+  const initialGrade = (wwRes.percentage * wwWeight) + (ptRes.percentage * ptWeight) + (qaRes.percentage * qaWeight);
+  const finalTransmuted = typeof calculateTransmuted === 'function' ? calculateTransmuted(initialGrade) : Math.round(initialGrade);
+  const isPassed = finalTransmuted >= 75;
+
+  // Update DOM cells for this row only
+  const wwTotalCell = rowEl.querySelector('.cell-ww-total');
+  const wwPctCell = rowEl.querySelector('.cell-ww-pct');
+  const ptTotalCell = rowEl.querySelector('.cell-pt-total');
+  const ptPctCell = rowEl.querySelector('.cell-pt-pct') || rowEl.querySelector('.cell-pct');
+  const qaTotalCell = rowEl.querySelector('.cell-qa-total');
+  const qaPctCell = rowEl.querySelector('.cell-qa-pct');
+  const initialGradeCell = rowEl.querySelector('.cell-initial-grade');
+  const transmutedGradeCell = rowEl.querySelector('.cell-transmuted-grade');
+  const remarksCell = rowEl.querySelector('.cell-remarks');
+
+  if (wwTotalCell) wwTotalCell.textContent = `${wwRes.totalEarned} / ${wwRes.totalMax}`;
+  if (wwPctCell) wwPctCell.textContent = `${wwRes.percentage.toFixed(1)}%`;
+  
+  if (ptTotalCell) ptTotalCell.textContent = `${ptRes.totalEarned} / ${ptRes.totalMax}`;
+  if (ptPctCell) ptPctCell.textContent = `${ptRes.percentage.toFixed(1)}%`;
+
+  if (qaTotalCell) qaTotalCell.textContent = `${qaRes.totalEarned} / ${qaRes.totalMax}`;
+  if (qaPctCell) qaPctCell.textContent = `${qaRes.percentage.toFixed(1)}%`;
+
+  if (initialGradeCell) initialGradeCell.textContent = `${initialGrade.toFixed(2)}%`;
+  if (transmutedGradeCell) transmutedGradeCell.textContent = finalTransmuted;
+  if (remarksCell) {
+    remarksCell.innerHTML = `
+      <span class="inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
+        isPassed 
+          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+          : 'bg-red-100 text-red-800 border border-red-300'
+      }">
+        ${isPassed ? 'PASSED' : 'FAILED'}
+      </span>
+    `;
+  }
+}
+    
+function handleScoreTab(event, inputEl) {
+  if (event.key === 'Tab' || event.key === 'Enter') {
+    event.preventDefault(); // Stop default horizontal tabbing
+
+    const currentCell = inputEl.closest('td');
+    const currentRow = inputEl.closest('tr');
+    if (!currentCell || !currentRow) return;
+
+    // Find current column index
+    const cellIndex = Array.from(currentRow.children).indexOf(currentCell);
+
+    // Go to next row (or previous row if Shift + Tab)
+    const targetRow = event.shiftKey ? currentRow.previousElementSibling : currentRow.nextElementSibling;
+
+    if (targetRow) {
+      const targetCell = targetRow.children[cellIndex];
+      if (targetCell) {
+        const targetInput = targetCell.querySelector('input');
+        if (targetInput) {
+          targetInput.focus();
+          targetInput.select(); // Highlights text for fast typing
+        }
+      }
+    }
+  }
+}
+
+function recalculateRowSummary(learnerId) {
+  const learnerGrades = state.savedGradesLocal.filter(g => g.grade_learner === learnerId);
+
+  const getUniqueActivities = (typePredicate) => {
+    const map = new Map();
+    state.savedGradesLocal.forEach(g => {
+      if (typePredicate(g.grade_type) && g.grade_title) {
+        if (!map.has(g.grade_title)) {
+          map.set(g.grade_title, { 
+            title: g.grade_title, 
+            maxScore: g.grade_max_score || 100, 
+            type: g.grade_type
+          });
+        }
+      }
+    });
+    return Array.from(map.values());
+  };
+
+  const wwActs = getUniqueActivities(t => t === 'WW');
+  const ptActs = getUniqueActivities(t => t === 'PT');
+  const qaActs = getUniqueActivities(t => t && t.startsWith('QA'));
+
+  const wwWeight = (state.selectedSubject.subject_ww_percent || 30) / 100;
+  const ptWeight = (state.selectedSubject.subject_pt_percent || 50) / 100;
+  const qaWeight = (state.selectedSubject.subject_qa_percent || 20) / 100;
+
+  const calcCategoryPct = (activities) => {
+    if (activities.length === 0) return 0;
+    let sumPct = 0;
+    activities.forEach(act => {
+      const entry = learnerGrades.find(g => g.grade_title === act.title);
+      const scoreVal = (entry && entry.grade_score !== undefined) ? entry.grade_score : '';
+      if (scoreVal !== '') {
+        sumPct += (parseFloat(scoreVal) / act.maxScore) * 100;
+      }
+    });
+    return sumPct / activities.length;
+  };
+
+  const wwPct = calcCategoryPct(wwActs);
+  const ptPct = calcCategoryPct(ptActs);
+  const qaPct = calcCategoryPct(qaActs);
+
+  const initialGrade = (wwPct * wwWeight) + (ptPct * ptWeight) + (qaPct * qaWeight);
+  const finalTransmuted = calculateTransmuted(initialGrade);
+  const isPassed = finalTransmuted >= 75;
+
+  // Target row directly in DOM without touching input nodes
+  const row = document.querySelector(`tr[data-learner-id="${learnerId}"]`);
+  if (!row) return;
+
+  const wwCell = row.querySelector('.cell-ww-total');
+  const ptCell = row.querySelector('.cell-pt-total');
+  const qaCell = row.querySelector('.cell-qa-total');
+  const initCell = row.querySelector('.cell-initial-grade');
+  const transCell = row.querySelector('.cell-transmuted-grade');
+  const remarksCell = row.querySelector('.cell-remarks');
+
+  if (wwCell) wwCell.innerText = `${wwPct.toFixed(1)}%`;
+  if (ptCell) ptCell.innerText = `${ptPct.toFixed(1)}%`;
+  if (qaCell) qaCell.innerText = `${qaPct.toFixed(1)}%`;
+  if (initCell) initCell.innerText = `${initialGrade.toFixed(2)}%`;
+  if (transCell) transCell.innerText = finalTransmuted;
+  if (remarksCell) {
+    remarksCell.innerHTML = `
+      <span class="inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
+        isPassed 
+          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+          : 'bg-red-100 text-red-800 border border-red-300'
+      }">
+        ${isPassed ? 'PASSED' : 'FAILED'}
+      </span>`;
+  }
+}
+
+    async function addLearnerModal() {
+      if (!state.selectedSubject || !state.selectedSubject.subject_section) {
+        return alert("Please select a subject first.");
+      }
+
+      const name = prompt("Enter Learner's Full Name (Last Name, First Name):");
+      if (!name || !name.trim()) return;
+
+      const { error } = await supabaseClient
+        .from('er_learners')
+        .insert([{ 
+          learner_name: name.trim(), 
+          learner_section: state.selectedSubject.subject_section 
+        }]);
+
+      if (error) {
+        alert("Error adding learner: " + error.message);
+      } else {
+        alert(`Added ${name} successfully!`);
+        handleSubjectChange();
+      }
+    }
+
+    function handleScoreTab(event, currentInput) {
+  if (event.key !== 'Tab') return;
+
+  const currentTd = currentInput.closest('td');
+  const currentTr = currentInput.closest('tr');
+  const tbody = currentTr.parentElement;
+  const cellIndex = currentTd.cellIndex;
+
+  let targetTr = event.shiftKey 
+    ? currentTr.previousElementSibling 
+    : currentTr.nextElementSibling;
+
+  // 1. Move to the next/previous learner in the SAME activity column
+  if (targetTr) {
+    const targetTd = targetTr.cells[cellIndex];
+    if (targetTd) {
+      const targetInput = targetTd.querySelector('input');
+      if (targetInput) {
+        event.preventDefault();
+        targetInput.focus();
+        targetInput.select(); // Highlights text for instant overwriting
+        return;
+      }
+    }
+  } 
+  
+  // 2. Column Auto-Wrap: Reached bottom of column -> wrap to top of NEXT activity column
+  if (!event.shiftKey && tbody.firstElementChild) {
+    const firstRow = tbody.firstElementChild;
+    for (let i = cellIndex + 1; i < firstRow.cells.length; i++) {
+      const nextInput = firstRow.cells[i].querySelector('input');
+      if (nextInput) {
+        event.preventDefault();
+        nextInput.focus();
+        nextInput.select();
+        return;
+      }
+    }
+  }
+
+  // 3. Shift+Tab Auto-Wrap: Reached top of column -> wrap to bottom of PREVIOUS activity column
+  if (event.shiftKey && tbody.lastElementChild) {
+    const lastRow = tbody.lastElementChild;
+    for (let i = cellIndex - 1; i >= 0; i--) {
+      const prevInput = lastRow.cells[i].querySelector('input');
+      if (prevInput) {
+        event.preventDefault();
+        prevInput.focus();
+        prevInput.select();
+        return;
+      }
+    }
+  }
+}
+
+// Switch between Main Tabs (Grades, Progress Monitoring, Attendance)
+function switchMainTab(tabName) {
+  // Hide all main content blocks
+  document.querySelectorAll('.main-tab-content').forEach(el => {
+    el.classList.add('hidden');
+    el.classList.remove('block');
+  });
+
+  // Reset all main tab button styles to inactive state
+  document.querySelectorAll('.main-tab-btn').forEach(btn => {
+    btn.className = "main-tab-btn px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors text-slate-600 hover:bg-slate-200/60";
+  });
+
+  // Activate selected main tab content & button
+  const targetContent = document.getElementById(`main-tab-content-${tabName}`);
+  const targetBtn = document.getElementById(`tab-btn-${tabName}`);
+
+  if (targetContent) {
+    targetContent.classList.remove('hidden');
+    targetContent.classList.add('block');
+  }
+
+  if (targetBtn) {
+    targetBtn.className = "main-tab-btn px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors bg-white text-blue-600 border-t-2 border-blue-600 shadow-sm";
+  }
+}
+
+// Switch between Progress Monitoring Sub-tabs (Adding vs Summary)
+function switchProgressSubTab(subTabName) {
+  // Hide all sub-tab contents
+  document.querySelectorAll('.subtab-content').forEach(el => {
+    el.classList.add('hidden');
+    el.classList.remove('block');
+  });
+
+  // Reset all sub-tab button styles to inactive state
+  document.querySelectorAll('.subtab-btn').forEach(btn => {
+    btn.className = "subtab-btn pb-2 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-700 transition-colors border-b-2 border-transparent";
+  });
+
+  // Activate selected sub-tab content & button
+  const targetContent = document.getElementById(`subtab-content-${subTabName}`);
+  const targetBtn = document.getElementById(`subtab-btn-${subTabName}`);
+
+  if (targetContent) {
+    targetContent.classList.remove('hidden');
+    targetContent.classList.add('block');
+  }
+
+  if (targetBtn) {
+    targetBtn.className = "subtab-btn pb-2 text-xs font-bold uppercase tracking-wider text-blue-600 border-b-2 border-blue-600 transition-colors";
+  }
+  // Refresh data context when switching subtabs
+  if (subTabName === 'add-lc') populateLcDropdowns();
+  if (subTabName === 'add-report') {
+    populateReportSubjectDropdown();
+  }
+  if (subTabName === 'summary') {
+    populateReportSubjectDropdown();
+    loadProgressSummary();
+  }
+}
+
+// ------------------------------------------------------------------
+// PROGRESS MONITORING SUB-TABS NAVIGATION
+// ------------------------------------------------------------------
+function switchProgressSubTab(subTabName) {
+  document.querySelectorAll('.subtab-pane').forEach(el => {
+    el.classList.add('hidden');
+    el.classList.remove('block');
+  });
+
+  document.querySelectorAll('.subtab-btn').forEach(btn => {
+    btn.className = "subtab-btn pb-2 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-700 transition-colors border-b-2 border-transparent";
+  });
+
+  const targetPane = document.getElementById(`subtab-content-${subTabName}`);
+  const targetBtn = document.getElementById(`subtab-btn-${subTabName}`);
+
+  if (targetPane) {
+    targetPane.classList.remove('hidden');
+    targetPane.classList.add('block');
+  }
+  if (targetBtn) {
+    targetBtn.className = "subtab-btn pb-2 text-xs font-bold uppercase tracking-wider text-blue-600 border-b-2 border-blue-600 transition-colors";
+  }
+
+  // Refresh dropdowns when switching tabs
+  if (subTabName === 'add-lc') populateLcDropdowns();
+  if (subTabName === 'add-report') populateReportSubjectDropdown();
+  if (subTabName === 'summary') populateSummarySubjectDropdown();
+}
+
+// ------------------------------------------------------------------
+// 3. SAVE LC TEMPLATE ACROSS MULTIPLE SELECTED SUBJECTS
+// ------------------------------------------------------------------
+async function saveLcTemplate() {
+  const subjectIds = Array.from(document.querySelectorAll('input[name="lc_subject_checkbox"]:checked')).map(el => el.value);
+  const topicSelectVal = document.getElementById('lc-topic-select').value;
+  const topicOtherVal = document.getElementById('lc-topic-other').value.trim();
+  const progressTopic = topicSelectVal === '__other__' ? topicOtherVal : topicSelectVal;
+  
+  // Updated to support the new Learning Competency dropdown + custom input field
+  const lcSelectVal = document.getElementById('lc-select').value;
+  const lcOtherVal = document.getElementById('lc-other').value.trim();
+  const progressLc = lcSelectVal === '__other__' ? lcOtherVal : lcSelectVal;
+
+  if (subjectIds.length === 0 || !progressTopic || !progressLc) {
+    alert('Please select at least one Subject, provide a Topic, and fill in the Learning Competency.');
+    return;
+  }
+
+  const aboveArr = parseCriteria('lc-above');
+  const atArr = parseCriteria('lc-at');
+  const belowArr = parseCriteria('lc-below');
+
+  let totalSavedCount = 0;
+
+  // Loop through each checked subject and save records for its respective section learners
+  for (const subjectId of subjectIds) {
+    const subjectObj = state.subjects.find(s => s.id === subjectId);
+    if (!subjectObj || !subjectObj.subject_section) continue;
+
+    const { data: learnersData, error: lError } = await supabaseClient
+      .from('er_learners')
+      .select('*')
+      .eq('learner_section', subjectObj.subject_section);
+
+    if (lError || !learnersData || learnersData.length === 0) continue;
+
+    for (const l of learnersData) {
+      const record = {
+        progress_topic: progressTopic,
+        progress_lc: progressLc,
+        subject: subjectId,
+        progress_learner: l.id,
+        progress_above: aboveArr,
+        progress_at: atArr,
+        progress_below: belowArr,
+        progress_result: 'At Standard'
+      };
+      queueForSync('er_progress_reports', record);
+      totalSavedCount++;
+    }
+  }
+
+  if (totalSavedCount === 0) {
+    alert('No learners found for the selected subject sections.');
+    return;
+  }
+
+  alert(`Successfully saved progress records for ${totalSavedCount} learner entries across the selected subjects under "${progressLc}"!`);
+  switchProgressSubTab('add-report');
+}
+
+// ------------------------------------------------------------------
+// TAB 2: LOAD & SAVE PROGRESS REPORT TABLE
+// ------------------------------------------------------------------
+async function loadReportTable() {
+  const subjectId = document.getElementById('report-subject').value;
+  const topic = document.getElementById('report-topic').value;
+  const lc = document.getElementById('report-lc').value;
+  const tbody = document.getElementById('report-table-body');
+
+  if (!subjectId || !topic || !lc) {
+    alert('Please select Subject, Topic, and Learning Competency.');
+    return;
+  }
+
+  const subjectObj = state.subjects.find(s => s.id === subjectId);
+  if (!subjectObj) return;
+
+  const [{ data: learners }, { data: reports }] = await Promise.all([
+    supabaseClient.from('er_learners').select('*').eq('learner_section', subjectObj.subject_section).order('learner_name'),
+    supabaseClient.from('er_progress_reports').select('*').eq('subject', subjectId).eq('progress_topic', topic).eq('progress_lc', lc)
+  ]);
+
+  if (!learners || learners.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">No learners found.</td></tr>`;
+    return;
+  }
+
+  const reportMap = new Map((reports || []).map(r => [r.progress_learner, r]));
+  let html = '';
+
+  learners.forEach(l => {
+    const rep = reportMap.get(l.id) || {};
+    const aboveArr = rep.progress_above || [];
+    const atArr = rep.progress_at || [];
+    const belowArr = rep.progress_below || [];
+    
+    const savedAboveChecked = rep.progress_above_checked || [];
+    const savedAtChecked = rep.progress_at_checked || [];
+    const savedBelowChecked = rep.progress_below_checked || [];
+    const currentResult = rep.progress_result || 'At Standard';
+
+    let aboveHtml = aboveArr.length ? aboveArr.map(item => {
+      const isChecked = savedAboveChecked.includes(item) ? 'checked' : '';
+      return `
+        <label class="flex items-start gap-1.5 text-left cursor-pointer hover:bg-emerald-100/50 p-1 rounded">
+          <input type="checkbox" name="report_above_${l.id}" value="${item.replace(/"/g, '&quot;')}" class="above-checkbox mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" ${isChecked} onchange="calculateProgressRow(this.closest('tr'))" />
+          <span class="text-[11px] text-slate-700 leading-tight">${item}</span>
+        </label>`;
+    }).join('') : '<span class="text-slate-400 text-[10px] italic">No criteria</span>';
+
+    let atHtml = atArr.length ? atArr.map(item => {
+      const isChecked = savedAtChecked.includes(item) ? 'checked' : '';
+      return `
+        <label class="flex items-start gap-1.5 text-left cursor-pointer hover:bg-blue-100/50 p-1 rounded">
+          <input type="checkbox" name="report_at_${l.id}" value="${item.replace(/"/g, '&quot;')}" class="at-checkbox mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" ${isChecked} onchange="calculateProgressRow(this.closest('tr'))" />
+          <span class="text-[11px] text-slate-700 leading-tight">${item}</span>
+        </label>`;
+    }).join('') : '<span class="text-slate-400 text-[10px] italic">No criteria</span>';
+
+    let belowHtml = belowArr.length ? belowArr.map(item => {
+      const isChecked = savedBelowChecked.includes(item) ? 'checked' : '';
+      return `
+        <label class="flex items-start gap-1.5 text-left cursor-pointer hover:bg-amber-100/50 p-1 rounded">
+          <input type="checkbox" name="report_below_${l.id}" value="${item.replace(/"/g, '&quot;')}" class="below-checkbox mt-0.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500" ${isChecked} onchange="calculateProgressRow(this.closest('tr'))" />
+          <span class="text-[11px] text-slate-700 leading-tight">${item}</span>
+        </label>`;
+    }).join('') : '<span class="text-slate-400 text-[10px] italic">No criteria</span>';
+
+    // Determine badge styling based on current value
+    let badgeClasses = 'bg-blue-100 text-blue-800 border-blue-200';
+    if (currentResult === 'Above Standard') badgeClasses = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    if (currentResult === 'Below Standard') badgeClasses = 'bg-amber-100 text-amber-800 border-amber-200';
+
+    html += `
+      <tr data-learner-id="${l.id}" data-report-uuid="${rep.uuid || ''}" class="border-b border-slate-200 hover:bg-slate-50">
+        <td class="p-3 font-medium text-slate-800 border-r border-slate-200 align-top">${l.learner_name}</td>
+        <td class="p-2 border-r border-slate-200 align-top bg-emerald-50/20"><div class="space-y-1">${aboveHtml}</div></td>
+        <td class="p-2 border-r border-slate-200 align-top bg-blue-50/20"><div class="space-y-1">${atHtml}</div></td>
+        <td class="p-2 border-r border-slate-200 align-top bg-amber-50/20"><div class="space-y-1">${belowHtml}</div></td>
+        <td class="p-2 align-middle text-center">
+          <div class="progress-result-container inline-block">
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wide ${badgeClasses}">
+              ${currentResult}
+            </span>
+          </div>
+          <input type="hidden" class="progress-result-input" value="${currentResult}" />
+        </td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = html;
+}
+
+async function saveProgressReportsTable() {
+  const subjectId = document.getElementById('report-subject').value;
+  const topic = document.getElementById('report-topic').value;
+  const lc = document.getElementById('report-lc').value;
+  const rows = document.querySelectorAll('#report-table-body tr[data-learner-id]');
+
+  if (!subjectId || !topic || !lc || rows.length === 0) {
+    alert('No active report table loaded.');
+    return;
+  }
+
+  let count = 0;
+  for (const row of rows) {
+    const learnerId = row.getAttribute('data-learner-id');
+    const existingUuid = row.getAttribute('data-report-uuid');
+    
+    // Gather checked indicators using the checkbox classes
+    const aboveChecked = Array.from(row.querySelectorAll('.above-checkbox:checked')).map(el => el.value);
+    const atChecked = Array.from(row.querySelectorAll('.at-checkbox:checked')).map(el => el.value);
+    const belowChecked = Array.from(row.querySelectorAll('.below-checkbox:checked')).map(el => el.value);
+    
+    // Get the automated result from the hidden input (replacing the removed dropdown)
+    const resultInput = row.querySelector('.progress-result-input');
+    const resultVal = resultInput ? resultInput.value : 'At Standard';
+
+    const record = {
+      progress_topic: topic,
+      progress_lc: lc,
+      subject: subjectId,
+      progress_learner: learnerId,
+      progress_above: aboveChecked,
+      progress_at: atChecked,
+      progress_below: belowChecked,
+      progress_result: resultVal
+    };
+
+    if (existingUuid) {
+      const { error } = await supabaseClient
+        .from('er_progress_reports')
+        .update(record)
+        .eq('uuid', existingUuid);
+
+      if (error) console.error('Supabase Update Error:', error);
+    } else {
+      queueForSync('er_progress_reports', record);
+    }
+    count++;
+  }
+
+  alert(`Successfully saved progress reports for ${count} learners!`);
+}
+
+// ------------------------------------------------------------------
+// TAB 3: PROGRESS MONITORING SUMMARY MATRIX LOGIC
+// ------------------------------------------------------------------
+async function loadProgressSummary() {
+  const subjectId = document.getElementById('summary-subject').value;
+  const thead = document.getElementById('summary-matrix-thead');
+  const tbody = document.getElementById('summary-matrix-tbody');
+
+  if (!subjectId) {
+    thead.innerHTML = '';
+    tbody.innerHTML = `<tr><td class="p-8 text-center text-slate-400">Select a subject to view summary.</td></tr>`;
+    return;
+  }
+
+  const subjectObj = state.subjects.find(s => s.id === subjectId);
+  if (!subjectObj) return;
+
+  const [{ data: learners }, { data: reports }] = await Promise.all([
+    supabaseClient.from('er_learners').select('*').eq('learner_section', subjectObj.subject_section).order('learner_name'),
+    supabaseClient.from('er_progress_reports').select('*').eq('subject', subjectId).order('created_at', { ascending: true })
+  ]);
+
+  if (!learners || learners.length === 0 || !reports || reports.length === 0) {
+    thead.innerHTML = '';
+    tbody.innerHTML = `<tr><td class="p-8 text-center text-slate-400">No progress data found for this subject.</td></tr>`;
+    return;
+  }
+
+  const lcMap = new Map();
+  reports.forEach(r => {
+    if (r.progress_lc && !lcMap.has(r.progress_lc)) {
+      lcMap.set(r.progress_lc, {
+        topic: r.progress_topic || 'General',
+        lc: r.progress_lc,
+        created_at: r.created_at
+      });
+    }
+  });
+
+  const lcList = Array.from(lcMap.values());
+  const topicGroups = {};
+  lcList.forEach(item => {
+    if (!topicGroups[item.topic]) topicGroups[item.topic] = [];
+    topicGroups[item.topic].push(item);
+  });
+
+  let row1Html = `<th class="p-3 border-r border-b border-slate-300 text-left bg-slate-200 min-w-[220px]" rowspan="2">Learner Name</th>`;
+  let row2Html = `<tr>`;
+
+  for (const [topic, lcs] of Object.entries(topicGroups)) {
+    row1Html += `<th class="p-2 border-r border-b border-slate-300 text-center bg-slate-100 text-slate-800" colspan="${lcs.length}">${topic}</th>`;
+    lcs.forEach(item => {
+      row2Html += `<th class="p-2 border-r border-b border-slate-300 text-center bg-slate-50 text-slate-600 font-normal min-w-[140px]">${item.lc}</th>`;
+    });
+  }
+  row2Html += `</tr>`;
+
+  thead.innerHTML = `<tr>${row1Html}</tr>${row2Html}`;
+
+  const evalMap = new Map();
+  reports.forEach(r => {
+    if (!evalMap.has(r.progress_learner)) evalMap.set(r.progress_learner, new Map());
+    evalMap.get(r.progress_learner).set(r.progress_lc, r.progress_result || 'At Standard');
+  });
+
+  let bodyHtml = '';
+  learners.forEach(l => {
+    bodyHtml += `<tr class="border-b border-slate-200 hover:bg-slate-50">`;
+    bodyHtml += `<td class="p-3 border-r border-slate-200 font-medium text-slate-800">${l.learner_name}</td>`;
+
+    lcList.forEach(item => {
+      const learnerLcMap = evalMap.get(l.id);
+      const result = learnerLcMap ? (learnerLcMap.get(item.lc) || '-') : '-';
+      
+      let badgeClass = 'text-blue-700 bg-blue-50';
+      if (result === 'Above Standard') badgeClass = 'text-emerald-700 bg-emerald-50 font-bold';
+      if (result === 'Below Standard') badgeClass = 'text-amber-700 bg-amber-50 font-semibold';
+
+      bodyHtml += `<td class="p-2 border-r border-slate-200 text-center align-middle">
+        <span class="inline-block px-2 py-1 rounded text-[10px] ${badgeClass}">${result}</span>
+      </td>`;
+    });
+
+    bodyHtml += `</tr>`;
+  });
+
+  tbody.innerHTML = bodyHtml;
+}
+
+// ------------------------------------------------------------------
+// DYNAMIC REPORT TOPICS DROPDOWN
+// ------------------------------------------------------------------
+async function updateReportTopicsDropdown() {
+  const subjectId = document.getElementById('report-subject').value;
+  const topicSelect = document.getElementById('report-topic');
+  const lcSelect = document.getElementById('report-lc'); // Assuming you have a learning competency dropdown element with id="report-lc"
+
+  // Reset dependent dropdowns
+  if (topicSelect) topicSelect.innerHTML = '<option value="">Select Topic</option>';
+  if (lcSelect) lcSelect.innerHTML = '<option value="">Select Learning Competency</option>';
+
+  if (!subjectId) return;
+
+  try {
+    // Fetch distinct topics associated with the selected subject from er_progress_reports
+    const { data, error } = await supabaseClient
+      .from('er_progress_reports')
+      .select('progress_topic')
+      .eq('subject', subjectId);
+
+    if (error) throw error;
+
+    // Filter unique, non-null topics
+    const uniqueTopics = [...new Set((data || []).map(r => r.progress_topic).filter(Boolean))];
+
+    if (uniqueTopics.length > 0 && topicSelect) {
+      topicSelect.innerHTML = '<option value="">Select Topic</option>' + 
+        uniqueTopics.map(t => `<option value="${t.replace(/"/g, '&quot;')}">${t}</option>`).join('');
+    } else if (topicSelect) {
+      topicSelect.innerHTML = '<option value="">No topics found</option>';
+    }
+  } catch (err) {
+    console.error('Error updating report topics dropdown:', err);
+  }
+}
+
+// ------------------------------------------------------------------
+// DYNAMIC REPORT LEARNING COMPETENCY (LC) DROPDOWN
+// ------------------------------------------------------------------
+async function updateReportLcDropdown() {
+  const subjectId = document.getElementById('report-subject')?.value;
+  const topic = document.getElementById('report-topic')?.value;
+  const lcSelect = document.getElementById('report-lc');
+
+  if (!lcSelect) return;
+  lcSelect.innerHTML = '<option value="">Select Learning Competency</option>';
+
+  if (!subjectId || !topic) return;
+
+  try {
+    // Fetch competencies matching both subject and topic
+    const { data, error } = await supabaseClient
+      .from('er_progress_reports')
+      .select('progress_lc')
+      .eq('subject', subjectId)
+      .eq('progress_topic', topic);
+
+    if (error) throw error;
+
+    console.log("Fetched competencies data for topic:", data);
+
+    const uniqueLcs = [...new Set((data || []).map(r => r.progress_lc).filter(Boolean))];
+
+    if (uniqueLcs.length > 0) {
+      let optionsHtml = '<option value="">Select Learning Competency</option>';
+      uniqueLcs.forEach(lc => {
+        const safeVal = lc.replace(/"/g, '&quot;');
+        optionsHtml += `<option value="${safeVal}">${lc}</option>`;
+      });
+      lcSelect.innerHTML = optionsHtml;
+    } else {
+      lcSelect.innerHTML = '<option value="">No competencies found</option>';
+    }
+  } catch (err) {
+    console.error('Error updating report learning competency dropdown:', err);
+    lcSelect.innerHTML = '<option value="">Error loading competencies</option>';
+  }
+}
+
+// Toggle input visibility when "+ Type New Topic" is selected
+function toggleTopicOtherInput() {
+  const select = document.getElementById('lc-topic-select');
+  const otherInput = document.getElementById('lc-topic-other');
+  if (!select || !otherInput) return;
+
+  if (select.value === '__other__') {
+    otherInput.classList.remove('hidden');
+    otherInput.focus();
+  } else {
+    otherInput.classList.add('hidden');
+    otherInput.value = '';
+  }
+
+  // Refresh LC dropdown based on selected topic
+  if (typeof updateConfigureLcDropdown === 'function') {
+    updateConfigureLcDropdown();
+  }
+}
+
+// Toggle input visibility when "+ Type New LC" is selected
+function toggleLcOtherInput() {
+  const select = document.getElementById('lc-select');
+  const otherInput = document.getElementById('lc-other');
+  if (!select || !otherInput) return;
+
+  if (select.value === '__other__') {
+    otherInput.classList.remove('hidden');
+    otherInput.focus();
+  } else {
+    otherInput.classList.add('hidden');
+    otherInput.value = '';
+  }
+}
+
+// Fetch existing LCs into the configure dropdown when a topic is chosen
+async function updateConfigureLcDropdown() {
+  const subjectIds = Array.from(document.querySelectorAll('input[name="lc_subject_checkbox"]:checked')).map(el => el.value);
+  const topicSelect = document.getElementById('lc-topic-select');
+  const lcSelect = document.getElementById('lc-select');
+  
+  if (!lcSelect) return;
+
+  let selectedTopic = topicSelect?.value;
+  if (selectedTopic === '__other__') {
+    selectedTopic = document.getElementById('lc-topic-other')?.value.trim();
+  }
+
+  lcSelect.innerHTML = '<option value="">Select Learning Competency</option><option value="__other__">+ Type New LC</option>';
+  const otherLcInput = document.getElementById('lc-other');
+  if (otherLcInput) {
+    otherLcInput.value = '';
+    otherLcInput.classList.add('hidden');
+  }
+
+  if (!selectedTopic || subjectIds.length === 0) return;
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('er_progress_reports')
+      .select('progress_lc')
+      .in('subject', subjectIds)
+      .eq('progress_topic', selectedTopic);
+
+    if (error) throw error;
+
+    const uniqueLcs = [...new Set((data || []).map(r => r.progress_lc).filter(Boolean))];
+
+    if (uniqueLcs.length > 0) {
+      let optionsHtml = '<option value="">Select Learning Competency</option>';
+      uniqueLcs.forEach(lc => {
+        const safeVal = lc.replace(/"/g, '&quot;');
+        optionsHtml += `<option value="${safeVal}">${lc}</option>`;
+      });
+      optionsHtml += '<option value="__other__">+ Type New LC</option>';
+      lcSelect.innerHTML = optionsHtml;
+    }
+  } catch (err) {
+    console.error('Error loading configure LCs:', err);
+  }
+}
+
+// ------------------------------------------------------------------
+// 2. LOAD TOPICS BASED ON ALL CHECKED SUBJECTS
+// ------------------------------------------------------------------
+async function updateLcTopicsDropdown() {
+  const subjectIds = Array.from(document.querySelectorAll('input[name="lc_subject_checkbox"]:checked')).map(el => el.value);
+  const topicSelect = document.getElementById('lc-topic-select');
+  const otherInput = document.getElementById('lc-topic-other');
+  
+  if (!topicSelect) return;
+
+  // Reset dropdown to default state
+  topicSelect.innerHTML = '<option value="">Select Existing Topic</option><option value="__other__">+ Type New Topic</option>';
+  if (otherInput) {
+    otherInput.value = '';
+    otherInput.classList.add('hidden');
+  }
+
+  try {
+    let query = supabaseClient.from('er_progress_reports').select('progress_topic');
+    
+    // If subjects are checked, filter by them. Otherwise, grab all topics so you can see them.
+    if (subjectIds.length > 0) {
+      query = query.in('subject', subjectIds);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    
+    console.log("Fetched progress reports data for topics:", data);
+
+    const uniqueTopics = [...new Set((data || []).map(r => r.progress_topic).filter(Boolean))];
+
+    if (uniqueTopics.length > 0) {
+      let optionsHtml = '<option value="">Select Existing Topic</option>';
+      uniqueTopics.forEach(t => {
+        const safeVal = t.replace(/"/g, '&quot;');
+        optionsHtml += `<option value="${safeVal}">${t}</option>`;
+      });
+      optionsHtml += '<option value="__other__">+ Type New Topic</option>';
+      topicSelect.innerHTML = optionsHtml;
+    } else {
+      console.log("No unique topics found for the current query.");
+    }
+  } catch (err) {
+    console.error('Error updating LC topics dropdown:', err);
+  }
+}
+
+// ------------------------------------------------------------------
+// DELETE LEARNING COMPETENCY (LC)
+// ------------------------------------------------------------------
+async function deleteSelectedLc() {
+  const subjectId = document.getElementById('report-subject')?.value;
+  const topic = document.getElementById('report-topic')?.value;
+  const lc = document.getElementById('report-lc')?.value;
+
+  if (!subjectId || !topic || !lc) {
+    alert('Please select a Subject, Topic, and Learning Competency to delete.');
+    return;
+  }
+
+  const confirmDelete = confirm(`Are you sure you want to delete the Learning Competency:\n"${lc}"\nunder topic "${topic}"? This will remove all associated progress reports for this LC.`);
+  if (!confirmDelete) return;
+
+  try {
+    // Delete all progress report rows matching this subject, topic, and LC
+    const { error } = await supabaseClient
+      .from('er_progress_reports')
+      .delete()
+      .eq('subject', subjectId)
+      .eq('progress_topic', topic)
+      .eq('progress_lc', lc);
+
+    if (error) throw error;
+
+    alert('Learning Competency and its progress records have been successfully deleted.');
+
+    // Reset and refresh the dropdowns and report table view
+    document.getElementById('report-lc').innerHTML = '<option value="">Select Learning Competency</option>';
+    const tbody = document.getElementById('report-table-body');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">LC deleted. Please select another.</td></tr>`;
+
+    // Refresh topic and LC dropdowns
+    if (typeof updateReportTopicsDropdown === 'function') {
+      await updateReportTopicsDropdown();
+    }
+  } catch (err) {
+    console.error('Error deleting learning competency:', err);
+    alert('Failed to delete Learning Competency. Check console for details.');
+  }
+}
+
+async function deleteSelectedLc() {
+  // 1. Gather checked subject IDs
+  const subjectIds = Array.from(document.querySelectorAll('input[name="lc_subject_checkbox"]:checked')).map(el => el.value);
+  
+  // 2. Get Topic value (handle custom input if applicable)
+  const topicSelect = document.getElementById('lc-topic-select');
+  let topic = topicSelect ? topicSelect.value : '';
+  if (topic === '__other__') {
+    topic = document.getElementById('lc-topic-other')?.value.trim();
+  }
+
+  // 3. Get Learning Competency value (handle custom input if applicable)
+  const lcSelect = document.getElementById('lc-select');
+  let lc = lcSelect ? lcSelect.value : '';
+  if (lc === '__other__') {
+    lc = document.getElementById('lc-other')?.value.trim();
+  }
+
+  // Validation check
+  if (subjectIds.length === 0 || !topic || !lc) {
+    alert('Please select at least one Subject, Topic, and Learning Competency to delete.');
+    return;
+  }
+
+  if (!confirm(`Are you sure you want to delete the Learning Competency:\n\n"${lc}"\n\nunder topic "${topic}" for the selected subject(s)?`)) {
+    return;
+  }
+
+  try {
+    // Delete records from Supabase matching the filters
+    const { error } = await supabaseClient
+      .from('er_progress_reports')
+      .delete()
+      .in('subject', subjectIds)
+      .eq('progress_topic', topic)
+      .eq('progress_lc', lc);
+
+    if (error) throw error;
+
+    alert('Learning Competency deleted successfully from Supabase.');
+
+    // Reset LC dropdown and refresh options
+    if (lcSelect) lcSelect.value = '';
+    if (typeof updateConfigureLcDropdown === 'function') {
+      await updateConfigureLcDropdown();
+    }
+  } catch (err) {
+    console.error('Error deleting learning competency:', err);
+    alert('Failed to delete learning competency. Check the browser console for details.');
+  }
+}
+
+// ------------------------------------------------------------------
+// AUTOMATED PROGRESS MONITORING CALCULATION & COLOR-CODING
+// ------------------------------------------------------------------
+// ------------------------------------------------------------------
+// AUTOMATED WEIGHTED AVERAGE PROGRESS CALCULATION
+// ------------------------------------------------------------------
+// ------------------------------------------------------------------
+// AUTOMATED WEIGHTED AVERAGE PROGRESS CALCULATION & BADGE UPDATER
+// ------------------------------------------------------------------
+function calculateProgressRow(rowElement) {
+  if (!rowElement) return;
+
+  // 1. Get checked counts for each category
+  const aboveChecked = rowElement.querySelectorAll('.above-checkbox:checked').length;
+  const atChecked = rowElement.querySelectorAll('.at-checkbox:checked').length;
+  const belowChecked = rowElement.querySelectorAll('.below-checkbox:checked').length;
+
+  // 2. Get total available "At Standard" boxes and total checked indicators
+  const totalAtBoxes = rowElement.querySelectorAll('.at-checkbox').length;
+  const totalChecked = aboveChecked + atChecked + belowChecked;
+
+  // 3. Calculate Weighted Average (Below = 1, At = 2, Above = 3)
+  const totalPoints = (belowChecked * 1) + (atChecked * 2) + (aboveChecked * 3);
+  const weightedAvg = totalChecked > 0 ? (totalPoints / totalChecked) : 0;
+
+  // 4. Calculate At Standard demonstration percentage
+  const atPercentage = totalAtBoxes > 0 ? (atChecked / totalAtBoxes) : 0;
+
+  let resultText = 'At Standard';
+
+  // 5. Apply Final Automation Logic Rules
+  if (totalChecked === 0) {
+    resultText = 'At Standard';
+  } else if (weightedAvg < 2.00) {
+    resultText = 'Below Standard';
+  } else if (weightedAvg >= 2.50 && atPercentage >= 0.50) {
+    resultText = 'Above Standard';
+  } else {
+    resultText = 'At Standard';
+  }
+
+  // 6. Define Badge Colors
+  let badgeClasses = 'bg-blue-100 text-blue-800 border-blue-200';
+  if (resultText === 'Above Standard') {
+    badgeClasses = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+  } else if (resultText === 'Below Standard') {
+    badgeClasses = 'bg-amber-100 text-amber-800 border-amber-200';
+  }
+
+  // 7. Update the Badge UI and Hidden Input
+  const container = rowElement.querySelector('.progress-result-container');
+  const hiddenInput = rowElement.querySelector('.progress-result-input');
+
+  if (container) {
+    container.innerHTML = `
+      <span class="px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wide ${badgeClasses}">
+        ${resultText}
+      </span>
+    `;
+  }
+
+  if (hiddenInput) {
+    hiddenInput.value = resultText;
+  }
+}
+
+// Helper to color-code the dropdown based on classification
+function updateResultSelectStyling(selectEl, resultText) {
+  selectEl.className = "w-full border rounded-lg p-1.5 text-[11px] font-bold focus:ring-2 focus:ring-blue-500 ";
+  if (resultText === 'Above Standard') {
+    selectEl.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-300');
+  } else if (resultText === 'Below Standard') {
+    selectEl.classList.add('bg-amber-50', 'text-amber-800', 'border-amber-300');
+  } else {
+    selectEl.classList.add('bg-blue-50', 'text-blue-800', 'border-blue-300');
+  }
+}
+
+// ------------------------------------------------------------------
+// HELPER: PARSE CRITERIA TEXTAREAS (SPLIT BY NEW LINE)
+// ------------------------------------------------------------------
+function parseCriteria(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el || !el.value.trim()) return [];
+  
+  // Split text by newlines (\n), trim each line, and filter out empty lines
+  return el.value.split('\n')
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+</script>
+</body>
+</html>
